@@ -14,7 +14,7 @@ RestartSec=5
 User=sshpiper
 Group=sshpiper
 
-ExecStart=/home/sshpiper/sshpiperd -i /home/sshpiper/sshpiper_ed25519 /home/sshpiper/plugins/yaml --config /home/sshpiper/config.yaml
+ExecStart=/home/sshpiper/sshpiperd -i /home/sshpiper/sshpiper_ed25519 /home/sshpiper/yaml --config /home/sshpiper/config.yaml
 
 [Install]
 WantedBy=multi-user.target
