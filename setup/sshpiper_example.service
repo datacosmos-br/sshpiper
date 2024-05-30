@@ -1,0 +1,20 @@
+[Unit]
+Description=SSH Piper Service
+Wants=network-online.target
+After=network.target network-online.target
+
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+TimeoutSec=30
+Restart=on-failure
+RestartSec=5
+
+User=sshpiper
+Group=sshpiper
+
+ExecStart=/home/sshpiper/sshpiperd -i /home/sshpiper/sshpiper_ed25519 /home/sshpiper/plugins/yaml --config /home/sshpiper/config.yaml
+
+[Install]
+WantedBy=multi-user.target
