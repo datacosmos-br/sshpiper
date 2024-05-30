@@ -1,5 +1,5 @@
 [Unit]
-Description=SSH Piper Service
+Description=TensorOpera SSH Proxy
 Wants=network-online.target
 After=network.target network-online.target
 
