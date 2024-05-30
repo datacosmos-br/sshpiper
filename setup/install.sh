@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# perm check
+if [ `id -u` -ne 0 ]
+  then echo Please run this script as root or sudo
+  exit 1
+fi
+
 echo "starting install of SSH proxy"
 # create sshpiper account
 sudo useradd sshpiper
@@ -11,10 +17,10 @@ ARCH=$(dpkg --print-architecture)
 if [ "$ARCH" = "amd64" ]; then
     sudo curl https://github.com/TensorOpera-Inc/sshproxy/releases/download/v1.3.0/sshpiper_x86_64.tar.gz -o /home/sshpiper/download.tar.gz
 elif [ "$ARCH" = "arm64" ]; then
-        sudo curl https://github.com/TensorOpera-Inc/sshproxy/releases/download/v1.3.0/sshpiper_aarch64.tar.gz -o /home/sshpiper/download.tar.gz
+    sudo curl https://github.com/TensorOpera-Inc/sshproxy/releases/download/v1.3.0/sshpiper_aarch64.tar.gz -o /home/sshpiper/download.tar.gz
 else
     echo "Unsupported architecture: $ARCH, skipping installation of SSH proxy"
-    return
+    exit 1
 fi
 sudo tar -xvzf /home/sshpiper/download.tar.gz
 # reorganize files here or something
@@ -32,8 +38,17 @@ sudo systemctl enable sshpiper
 sudo systemctl start sshpiper
 # remove temporary files
 sudo rm /home/sshpiper/download.tar.gz
+# block internal address access
+sudo apt-get install -y iptables-persistent
+sudo iptables -A INPUT -p tcp --dport 2222 -m iprange --src-range 172.16.0.0-172.31.255.255 -j DROP
+sudo iptables -A INPUT -p tcp --dport 2222 -m iprange --src-range 10.0.0.0-10.255.255.255 -j DROP
+sudo iptables -A INPUT -p tcp --dport 2222 -m iprange --src-range 192.168.0.0-192.168.255.255 -j DROP
+sudo iptables -A INPUT -p tcp --dport 2222 -j ACCEPT
+sudo systemctl is-active --quiet netfilter-persistent || sudo systemctl start netfilter-persistent
+sudo netfilter-persistent save
 
 echo "SSH proxy installed"
+exit 0
 
 # the resultant filesystem should look like this:
 # /home/sshpiper
