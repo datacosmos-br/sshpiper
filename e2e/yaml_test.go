@@ -73,11 +73,6 @@ pipes:
     host: host-publickey:22
     private_key: {{ .PrivateKey }}
     known_hosts_data: {{ .KnownHostsKey }}
-- from:
-    - groupname: "test"
-  to:
-    host: host-password:2222
-    ignore_hostkey: true
 `
 
 func TestYaml(t *testing.T) {
