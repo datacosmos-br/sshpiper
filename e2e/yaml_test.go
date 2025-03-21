@@ -18,14 +18,14 @@ pipes:
 - from:
     - username: "password_simple"
   to:
-    host: host-password:22
+    host: host-password:2222
     username: "user"
     ignore_hostkey: true
 - from:
     - username: "^password_.*_regex$"
       username_regex_match: true
   to:
-    host: host-password:22
+    host: host-password:2222
     username: "user"
     known_hosts_data: 
     # github.com
@@ -36,14 +36,14 @@ pipes:
     - username: "^password_(.+?)_regex_expand$"
       username_regex_match: true
   to:
-    host: host-password:22
+    host: host-password:2222
     username: "$1"
     known_hosts_data: {{ .KnownHostsPass }}
 - from:
     - username: "publickey_simple"
       authorized_keys: {{ .AuthorizedKeys_Simple }}
   to:
-    host: host-publickey:22
+    host: host-publickey:2222
     username: "user"
     private_key: {{ .PrivateKey }}
     known_hosts_data: {{ .KnownHostsKey }}
@@ -54,7 +54,7 @@ pipes:
       - {{ .AuthorizedKeys_Simple }}
       - {{ .AuthorizedKeys_Catchall }}
   to:
-    host: host-publickey:22
+    host: host-publickey:2222
     username: "user"
     ignore_hostkey: true
     private_key: {{ .PrivateKey }}
@@ -62,7 +62,7 @@ pipes:
     - username: "cert"
       trusted_user_ca_keys: {{ .TrustedUserCAKeys }}
   to:
-    host: host-publickey:22
+    host: host-publickey:2222
     username: "user"
     ignore_hostkey: true
     private_key: {{ .PrivateKey }}
@@ -70,7 +70,7 @@ pipes:
     - groupname: "test"
       authorized_keys: {{ .AuthorizedKeys_Simple }}
   to:
-    host: host-publickey:22
+    host: host-publickey:2222
     private_key: {{ .PrivateKey }}
     known_hosts_data: {{ .KnownHostsKey }}
 `
