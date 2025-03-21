@@ -301,6 +301,8 @@ func TestYaml(t *testing.T) {
 			"-o",
 			"UserKnownHostsFile=/dev/null",
 			"-p",
+			piperport,
+			"-l",
 			"password_XXX_regex",
 			"127.0.0.1",
 			fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
