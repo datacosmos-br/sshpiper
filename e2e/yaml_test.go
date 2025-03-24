@@ -67,10 +67,11 @@ pipes:
     ignore_hostkey: true
     private_key: {{ .PrivateKey }}
 - from:
-    - groupname: "test"
+    - groupname: "testgroup"
       authorized_keys: {{ .AuthorizedKeys_Simple }}
   to:
     host: host-publickey:2222
+    username: "user"
     private_key: {{ .PrivateKey }}
     known_hosts_data: {{ .KnownHostsKey }}
 `
@@ -180,16 +181,6 @@ func TestYaml(t *testing.T) {
 		// simple key for group
 		if err := runCmdAndWait("rm", "-f", path.Join(yamldir, "id_rsa_simple_group")); err != nil {
 			t.Errorf("failed to remove id_rsa for group: %v", err)
-		}
-
-		if err := runCmdAndWait(
-			"ssh-keygen",
-			"-N",
-			"",
-			"-f",
-			path.Join(yamldir, "id_rsa_simple_group"),
-		); err != nil {
-			t.Errorf("failed to generate private key for group: %v", err)
 		}
 
 	}
@@ -516,9 +507,9 @@ func TestYaml(t *testing.T) {
 			"-p",
 			piperport,
 			"-l",
-			"user",
+			"testuser",
 			"-i",
-			path.Join(yamldir, "id_rsa_simple_group"),
+			path.Join(yamldir, "id_rsa_simple"),
 			"127.0.0.1",
 			fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
 		)

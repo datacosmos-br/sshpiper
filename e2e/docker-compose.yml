@@ -104,6 +104,7 @@ services:
       - publickey_authorized_keys:/publickey_authorized_keys
       - /var/run/docker.sock:/var/run/docker.sock
       - kubeconfig:/root/.kube:ro
+      - ./add_group.sh:/etc/cont-init.d/99-add-group.sh:ro
     command: ["./e2eentry.sh"]
     privileged: true
     working_dir: /src/e2e
