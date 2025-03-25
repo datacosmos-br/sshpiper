@@ -18,7 +18,6 @@ services:
       - ./sshdconfig/no_penalties.conf:/config/sshd/sshd_config.d/no_penalties.conf:ro
       - ./sshdconfig/banner.conf:/config/sshd/sshd_config.d/banner.conf:ro
       - ./sshdconfig/banner:/tmp/banner:ro
-      - ./add_test_user.sh:/etc/cont-init.d/99-add-test-user.sh:ro
     networks:
       - default
       - netdistract
@@ -37,7 +36,6 @@ services:
       - shared:/shared
       - publickey_authorized_keys:/config/.ssh/
       - ./sshdconfig/no_penalties.conf:/config/sshd/sshd_config.d/no_penalties.conf:ro
-      - ./add_test_user.sh:/etc/cont-init.d/99-add-test-user.sh:ro
 
   host-capublickey:
     image: lscr.io/linuxserver/openssh-server:9.9_p1-r2-ls190
@@ -104,7 +102,6 @@ services:
       - publickey_authorized_keys:/publickey_authorized_keys
       - /var/run/docker.sock:/var/run/docker.sock
       - kubeconfig:/root/.kube:ro
-      - ./add_group.sh:/etc/cont-init.d/99-add-group.sh:ro
     command: ["./e2eentry.sh"]
     privileged: true
     working_dir: /src/e2e
