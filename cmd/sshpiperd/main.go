@@ -10,9 +10,8 @@ import (
 
 	"github.com/pires/go-proxyproto"
 	log "github.com/sirupsen/logrus"
-	"github.com/urfave/cli/v2"
-
 	"github.com/tg123/sshpiper/cmd/sshpiperd/internal/plugin"
+	"github.com/urfave/cli/v2"
 )
 
 var mainver string = "(devel)"

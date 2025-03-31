@@ -1,4 +1,5 @@
 #!/bin/bash
+rm -rf out
 mkdir out
 mkdir out/arm64
 GOOS=linux GOARCH=arm64 go build -tags full -o out/arm64 ./...
