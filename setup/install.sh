@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # perm check
-if [ `id -u` -ne 0 ]
+if [ "$(id -u)" -ne 0 ]
   then echo Please run this script as root or sudo
   exit 1
 fi

@@ -175,7 +175,12 @@ func (s *skelpipePublicKeyWrapper) AuthorizedKeys(conn libplugin.ConnMetadata) (
 }
 
 func (s *skelpipePublicKeyWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata) ([]byte, error) {
-	return nil, nil // TODO support trusted_user_ca_keys
+	// Load CA keys from inline data and file if provided.
+	byteSlices, err := loadStringAndFile(s.from.TrustedUserCAKeysData, s.from.TrustedUserCAKeysFile)
+	if err != nil {
+		return nil, err
+	}
+	return bytes.Join(byteSlices, []byte("\n")), nil
 }
 
 func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([]byte, []byte, error) {

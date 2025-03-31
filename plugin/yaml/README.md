@@ -12,6 +12,7 @@ some basic idea of yaml config file:
 
  * `authorized_keys`, `known_hosts` are array `path/to/target/file` or single string, but there are also `authorized_keys_data`, `known_hosts_data` accepting base64 inline data, file and data will be merged if both are set
  * `private_key` is `path/to/target/file`, but there are also `private_key_data` accepting base64 inline data, file wins if both are set
+ * CA-based authentication: The plugin also supports client-side Certificate Authority (CA) authentication. You can provide CA keys using `trusted_user_ca_keys` or `trusted_user_ca_keys_data` (accepting file paths or base64 inline data). The file and data will be merged if both are set, and these CA keys are used to verify client certificates during public key authentication.
  * magic placeholders in path, example usage: `/path/to/$UPSTREAM_USER/file`
     * `DOWNSTREAM_USER`: supported in `private_key`, `known_hosts`
     * `UPSTREAM_USER`: supported in `authorized_keys`, `private_key`, `known_hosts`
@@ -65,6 +66,9 @@ pipes:
     - username: ".*" # catch all    
       username_regex_match: true
       authorized_keys: /path/to/catch_all/authorized_keys
+      trusted_user_ca_keys:
+      - /path/to/ca_keys
+      trusted_user_ca_keys_data: "base64_ca_data"
   to:
     host: host-publickey:2222
     username: "user"

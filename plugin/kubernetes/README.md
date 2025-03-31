@@ -4,6 +4,15 @@ The kubernetes plugin for sshpiperd provides native kubernetes CRD integretion a
 
 this plugin is inpsired by the [first version kubernetes plugin](https://github.com/pockost/sshpipe-k8s-lib/) for v0 sshpier by [pockost](https://github.com/pockost)
 
+## CA-based Client Authentication
+
+In addition to the standard public key and password authentication, the plugin now supports client-side Certificate Authority (CA) authentication.  
+You can specify CA keys in your Pipe definition by providing:
+- `trusted_user_ca_keys_file`: a file path to the CA key.
+- `trusted_user_ca_keys_data`: inline (base64 or raw) CA key data.
+
+If both are set, the CA keys will be merged and used to verify client certificates.
+
 ## Usage
 
 Start plugin with flag `--all-namespaces` or environment variable `SSHPIPERD_KUBERNETES_ALL_NAMESPACES=true` for cluster-wide usage, or it will listen to the namespace where it is in by default.

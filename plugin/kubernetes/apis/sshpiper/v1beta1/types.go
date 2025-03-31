@@ -20,12 +20,14 @@ type PipeSpec struct {
 }
 
 type FromSpec struct {
-	Username           string `json:"username"`
-	UsernameRegexMatch bool   `json:"username_regex_match,omitempty"`
-	AuthorizedKeysData string `json:"authorized_keys_data,omitempty"`
-	HtpasswdData       string `json:"htpasswd_data,omitempty"`
-	AuthorizedKeysFile string `json:"authorized_keys_file,omitempty"`
-	HtpasswdFile       string `json:"htpasswd_file,omitempty"`
+	Username              string `json:"username"`
+	UsernameRegexMatch    bool   `json:"username_regex_match,omitempty"`
+	AuthorizedKeysData    string `json:"authorized_keys_data,omitempty"`
+	AuthorizedKeysFile    string `json:"authorized_keys_file,omitempty"`
+	TrustedUserCAKeysData string `json:"trusted_user_ca_keys_data,omitempty"`
+	TrustedUserCAKeysFile string `json:"trusted_user_ca_keys_file,omitempty"`
+	HtpasswdData          string `json:"htpasswd_data,omitempty"`
+	HtpasswdFile          string `json:"htpasswd_file,omitempty"`
 }
 
 type ToSpec struct {

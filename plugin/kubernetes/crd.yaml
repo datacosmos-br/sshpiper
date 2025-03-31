@@ -36,6 +36,10 @@ spec:
                       type: string
                     authorized_keys_file:
                       type: string
+                    trusted_user_ca_keys_data:
+                      type: string
+                    trusted_user_ca_keys_file:
+                      type: string
                     username:
                       type: string
                     htpasswd_data:
