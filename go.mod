@@ -2,8 +2,6 @@ module github.com/tg123/sshpiper
 
 go 1.24
 
-toolchain go1.24.0
-
 replace golang.org/x/crypto => ./crypto
 
 require (
@@ -84,7 +82,7 @@ require (
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
 	golang.org/x/mod v0.24.0 // indirect
-	golang.org/x/net v0.37.0 // indirect
+	golang.org/x/net v0.38.0 // indirect
 	golang.org/x/oauth2 v0.28.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/term v0.30.0
