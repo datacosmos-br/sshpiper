@@ -3,11 +3,13 @@ package libplugin
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"os"
 
+	vault "github.com/hashicorp/vault/api"
 	"github.com/tg123/remotesigner/grpcsigner"
 	"github.com/tg123/sshpiper/libplugin/ioconn"
 	"google.golang.org/grpc"
@@ -463,4 +465,45 @@ func (s *server) PipeCreateErrorNotice(ctx context.Context, req *PipeCreateError
 	s.config.PipeCreateErrorCallback(req.FromAddr, fmt.Errorf("%v", req.Error))
 
 	return &PipeCreateErrorNoticeResponse{}, nil
+}
+
+func NewVaultClient() (*vault.Client, error) {
+	cfg := vault.DefaultConfig()
+	// VAULT_ADDR must be set in the environment (e.g., "https://vault.example.com")
+	addr := os.Getenv("VAULT_ADDR")
+	if addr == "" {
+		return nil, errors.New("VAULT_ADDR not set")
+	}
+	cfg.Address = addr
+
+	client, err := vault.NewClient(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	// VAULT_TOKEN must be set (or use another auth method like AppRole)
+	token := os.Getenv("VAULT_TOKEN")
+	if token == "" {
+		return nil, errors.New("VAULT_TOKEN not set")
+	}
+	client.SetToken(token)
+	return client, nil
+}
+
+// GetSecret retrieves a secret from the given path in Vault.
+// The returned map contains the secret data.
+func GetSecret(path string) (map[string]interface{}, error) {
+	client, err := NewVaultClient()
+	if err != nil {
+		return nil, err
+	}
+
+	secret, err := client.Logical().Read(path)
+	if err != nil {
+		return nil, err
+	}
+	if secret == nil || secret.Data == nil {
+		return nil, errors.New("no data found at Vault path: " + path)
+	}
+	return secret.Data, nil
 }

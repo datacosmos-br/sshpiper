@@ -104,7 +104,10 @@
                             "type": "string"
                         }
                     ]
-                }                
+                },
+                "vault_ca_path": {
+                    "type": "string"
+                }
             },
             "required": [
                 "username"
@@ -157,6 +160,12 @@
                             "type": "string"
                         }
                     ]
+                },
+                "vault_private_key_path": {
+                    "type": "string"
+                },
+                "vault_password_path": {
+                    "type": "string"
                 }
             },
             "required": [

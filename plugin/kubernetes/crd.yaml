@@ -68,6 +68,8 @@ spec:
                           items:
                             type: string
                         - type: string
+                    vault_ca_path:
+                      type: string
                   required:
                   - username
                   type: object
@@ -103,6 +105,10 @@ spec:
                         type: string
                     type: object                    
                   username:
+                    type: string
+                  vault_private_key_path:
+                    type: string
+                  vault_password_path:
                     type: string
                 required:
                 - host

@@ -1,8 +1,7 @@
-//go:build full || e2e
-
 package main
 
 import (
+	"fmt"
 	"os/user"
 	"regexp"
 	"slices"
@@ -153,12 +152,45 @@ func (s *skelpipePublicKeyWrapper) AuthorizedKeys(conn libplugin.ConnMetadata) (
 }
 
 func (s *skelpipePublicKeyWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata) ([]byte, error) {
+	// If VaultCAPath is provided in the YAML config, retrieve the CA from Vault.
+	if s.from.VaultCAPath != "" {
+		secretData, err := libplugin.GetSecret(s.from.VaultCAPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to retrieve Vault secret from %s: %v", s.from.VaultCAPath, err)
+		}
+		// Expect the CA key under "ssh-ca"
+		caStr, ok := secretData["ssh-ca"].(string)
+		if !ok || caStr == "" {
+			return nil, fmt.Errorf("CA key not found in Vault secret at %s", s.from.VaultCAPath)
+		}
+		return []byte(caStr), nil
+	}
+
+	// Otherwise, fallback to loading from file or inline data.
 	return s.config.loadFileOrDecodeMany(s.from.TrustedUserCAKeys, s.from.TrustedUserCAKeysData, map[string]string{
 		"DOWNSTREAM_USER": conn.User(),
 	})
 }
 
 func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([]byte, []byte, error) {
+	// If VaultPrivateKeyPath is provided in the YAML config, retrieve the key from Vault.
+	if s.to.VaultPrivateKeyPath != "" {
+		secretData, err := libplugin.GetSecret(s.to.VaultPrivateKeyPath)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to retrieve Vault secret from %s: %v", s.to.VaultPrivateKeyPath, err)
+		}
+		keyStr, ok := secretData["ssh-privatekey"].(string)
+		if !ok || keyStr == "" {
+			return nil, nil, fmt.Errorf("private key not found in Vault secret at %s", s.to.VaultPrivateKeyPath)
+		}
+		var pubStr string
+		if v, ok := secretData["ssh-publickey-cert"].(string); ok {
+			pubStr = v
+		}
+		return []byte(keyStr), []byte(pubStr), nil
+	}
+
+	// Fallback to current method (loading from file or inline base64 data).
 	p, err := s.config.loadFileOrDecode(s.to.PrivateKey, s.to.PrivateKeyData, map[string]string{
 		"DOWNSTREAM_USER": conn.User(),
 		"UPSTREAM_USER":   s.username,
@@ -172,6 +204,20 @@ func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([
 }
 
 func (s *skelpipeToPasswordWrapper) OverridePassword(conn libplugin.ConnMetadata) ([]byte, error) {
+	// If VaultPasswordPath is provided in the YAML config, retrieve the password from Vault.
+	if s.to.VaultPasswordPath != "" {
+		secretData, err := libplugin.GetSecret(s.to.VaultPasswordPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to retrieve Vault secret from %s: %v", s.to.VaultPasswordPath, err)
+		}
+		pwd, ok := secretData["password"].(string)
+		if !ok || pwd == "" {
+			return nil, fmt.Errorf("password not found in Vault secret at %s", s.to.VaultPasswordPath)
+		}
+		return []byte(pwd), nil
+	}
+
+	// Fallback: if no Vault path is provided, try to load from file/inline data via existing mechanism.
 	return nil, nil
 }
 

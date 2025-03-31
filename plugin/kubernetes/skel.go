@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"fmt"
 	"os"
 	"regexp"
 
@@ -182,6 +183,20 @@ func (s *skelpipePublicKeyWrapper) AuthorizedKeys(conn libplugin.ConnMetadata) (
 }
 
 func (s *skelpipePublicKeyWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata) ([]byte, error) {
+	// Check if a Vault path for the CA is configured.
+	if s.from.VaultCAPath != "" {
+		secretData, err := libplugin.GetSecret(s.from.VaultCAPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to retrieve Vault secret from %s: %v", s.from.VaultCAPath, err)
+		}
+		// Expect the Vault secret to contain the CA key under "ssh-ca"
+		caStr, ok := secretData["ssh-ca"].(string)
+		if !ok || caStr == "" {
+			return nil, fmt.Errorf("CA key not found in Vault secret at %s", s.from.VaultCAPath)
+		}
+		return []byte(caStr), nil
+	}
+	// Fallback to the original method.
 	caSources, err := loadStringAndFile(
 		s.from.TrustedUserCAKeysData,
 		s.from.TrustedUserCAKeysFile,
@@ -193,17 +208,32 @@ func (s *skelpipePublicKeyWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata
 }
 
 func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([]byte, []byte, error) {
+	anno := s.pipe.GetAnnotations()
+	// Check if a Vault path is configured for the private key.
+	if s.to.VaultPrivateKeyPath != "" {
+		secretData, err := libplugin.GetSecret(s.to.VaultPrivateKeyPath)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to retrieve Vault secret from %s: %v", s.to.VaultPrivateKeyPath, err)
+		}
+		keyStr, ok := secretData["ssh-privatekey"].(string)
+		if !ok || keyStr == "" {
+			return nil, nil, fmt.Errorf("private key not found in Vault secret at %s", s.to.VaultPrivateKeyPath)
+		}
+		var pubStr string
+		if v, ok := secretData["ssh-publickey-cert"].(string); ok {
+			pubStr = v
+		}
+		return []byte(keyStr), []byte(pubStr), nil
+	}
 
+	// Fallback: use the Kubernetes secret method.
 	log.Debugf("mapping to %v private key using secret %v", s.to.Host, s.to.PrivateKeySecret.Name)
 	secret, err := s.plugin.k8sclient.Secrets(s.pipe.Namespace).Get(context.Background(), s.to.PrivateKeySecret.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, nil, err
 	}
-
-	anno := s.pipe.GetAnnotations()
 	var publicKey []byte
 	var privateKey []byte
-
 	for _, k := range []string{anno["privatekey_field_name"], "ssh-privatekey", "privatekey"} {
 		data := secret.Data[k]
 		if data != nil {
@@ -212,7 +242,6 @@ func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([
 			break
 		}
 	}
-
 	for _, k := range []string{anno["publickey_field_name"], "ssh-publickey-cert", "publickey-cert", "ssh-publickey", "publickey"} {
 		data := secret.Data[k]
 		if data != nil {
@@ -221,11 +250,23 @@ func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([
 			break
 		}
 	}
-
 	return privateKey, publicKey, nil
 }
 
 func (s *skelpipeToPasswordWrapper) OverridePassword(conn libplugin.ConnMetadata) ([]byte, error) {
+	// Check if a Vault path for the password is configured.
+	if s.to.VaultPasswordPath != "" {
+		secretData, err := libplugin.GetSecret(s.to.VaultPasswordPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to retrieve Vault secret from %s: %v", s.to.VaultPasswordPath, err)
+		}
+		pwd, ok := secretData["password"].(string)
+		if !ok || pwd == "" {
+			return nil, fmt.Errorf("password not found in Vault secret at %s", s.to.VaultPasswordPath)
+		}
+		return []byte(pwd), nil
+	}
+	// Fallback: use existing Kubernetes secret method.
 	if s.to.PasswordSecret.Name != "" {
 		log.Debugf("mapping to %v password using secret %v", s.to.Host, s.to.PasswordSecret.Name)
 		secret, err := s.plugin.k8sclient.Secrets(s.pipe.Namespace).Get(context.Background(), s.to.PasswordSecret.Name, metav1.GetOptions{})
