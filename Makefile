@@ -18,7 +18,7 @@ MAIN_BIN := $(BIN_DIR)/sshpiperd
 BUILD_TAGS ?= full
 
 # Docker image variables
-IMAGE ?= your-docker-registry/sshpiperd
+IMAGE ?= gru.ocir.io/grq1iurfepyg/sshpiperd
 TAG ?= latest
 
 .PHONY: all vendor fmt vet lint check codegen codegen-k8s gen-main build-main build-plugins build docker-local docker-build-push test clean
