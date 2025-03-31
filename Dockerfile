@@ -1,4 +1,5 @@
-FROM docker.io/golang:1.24-bookworm AS builder
+# syntax=docker/dockerfile:1.4
+FROM --platform=$TARGETPLATFORM docker.io/golang:1.24-bookworm AS builder
 
 ARG VER=devel
 ARG BUILDTAGS=""
@@ -11,13 +12,12 @@ WORKDIR /app
 
 # Initialize and update submodules (recursive)
 COPY . .
-RUN git config --global --add safe.directory '/app'
-RUN git submodule init
-RUN git submodule update --recursive --init
+RUN git config --global --add safe.directory /app
+RUN git submodule update --init --recursive
 
-RUN go build -o /sshpiperd -ldflags "-X main.mainver=$VER" ./cmd/...
-RUN go build -o /sshpiperd/plugins ./plugin/...
-ADD entrypoint.sh /sshpiperd
+RUN go build -tags "$BUILDTAGS" -ldflags "-X main.mainver=$VER" -o /sshpiperd ./cmd/...
+RUN go build -tags "$BUILDTAGS" -o /sshpiperd/plugins ./plugin/...
+COPY entrypoint.sh /sshpiperd
 
 FROM builder AS testrunner
 RUN apt update && apt install -y autoconf automake libssl-dev libz-dev
@@ -28,7 +28,7 @@ COPY --from=farmer1992/openssh-static:V_8_0_P1 /usr/bin/ssh /usr/bin/ssh-8.0p1
 FROM docker.io/busybox
 # LABEL maintainer="Boshi Lian<farmer1992@gmail.com>"
 
-RUN mkdir /etc/ssh/
+RUN mkdir -p /etc/ssh/
 
 # Add user nobody with id 1
 ARG USERID=1000
@@ -40,7 +40,7 @@ RUN chown -R $USERID:$GROUPID /etc/ssh/
 
 USER $USERID:$GROUPID
 
-COPY --from=builder --chown=$USERID /sshpiperd/ /sshpiperd
+COPY --from=builder --chown=$USERID:$GROUPID /sshpiperd/ /sshpiperd
 EXPOSE 2222
 
 ENTRYPOINT ["/sshpiperd/entrypoint.sh"]

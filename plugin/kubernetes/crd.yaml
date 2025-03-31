@@ -33,21 +33,41 @@ spec:
                 items:
                   properties:
                     authorized_keys_data:
-                      type: string
+                      oneOf:
+                        - type: array
+                          items:
+                            type: string
+                        - type: string
                     authorized_keys_file:
-                      type: string
+                      oneOf:
+                        - type: array
+                          items:
+                            type: string
+                        - type: string
                     trusted_user_ca_keys_data:
-                      type: string
+                      oneOf:
+                        - type: array
+                          items:
+                            type: string
+                        - type: string
                     trusted_user_ca_keys_file:
-                      type: string
-                    username:
-                      type: string
+                      oneOf:
+                        - type: array
+                          items:
+                            type: string
+                        - type: string
                     htpasswd_data:
-                      type: string
+                      oneOf:
+                        - type: array
+                          items:
+                            type: string
+                        - type: string
                     htpasswd_file:
-                      type: string
-                    username_regex_match:
-                      type: boolean
+                      oneOf:
+                        - type: array
+                          items:
+                            type: string
+                        - type: string
                   required:
                   - username
                   type: object
@@ -59,7 +79,11 @@ spec:
                   ignore_hostkey:
                     type: boolean
                   known_hosts_data:
-                    type: string
+                    oneOf:
+                      - type: array
+                        items:
+                          type: string
+                      - type: string
                   private_key_secret:
                     description: LocalObjectReference contains enough information
                       to let you locate the referenced object inside the same namespace.

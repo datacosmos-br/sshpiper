@@ -1,4 +1,4 @@
-package remotecall
+package main
 
 import (
 	"bytes"
@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"net"
 	"net/http"
@@ -14,6 +13,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"golang.org/x/crypto/ssh"
 )

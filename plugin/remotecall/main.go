@@ -7,19 +7,18 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/tg123/sshpiper/libplugin"
-	"github.com/tg123/sshpiper/plugin/internal/remotecall"
 	"golang.org/x/crypto/ssh"
 )
 
-func createRemoteCaller(c *cli.Context) (*remotecall.RemoteCall, error) {
-	remoteCall, err := remotecall.InitRemoteCall(
+func createRemoteCaller(c *cli.Context) (*RemoteCall, error) {
+	remoteCall, err := InitRemoteCall(
 		c.String(userClusterMappingEndpoint),
 		c.String(userClusterMappingEndpointToken),
 		c.Bool(userClusterMappingEndpointIsSocket),
 		c.String(userClusterMappingEndpointSocketEndpoint),
-		c.Generic(remoteAuthEndpoints).(*remotecall.StringMapFlag).Value,
-		c.Generic(remoteAuthEndpointsSecret).(*remotecall.StringMapFlag).Value,
-		c.Generic(remoteEndpoints).(*remotecall.StringMapFlag).Value,
+		c.Generic(remoteAuthEndpoints).(*StringMapFlag).Value,
+		c.Generic(remoteAuthEndpointsSecret).(*StringMapFlag).Value,
+		c.Generic(remoteEndpoints).(*StringMapFlag).Value,
 		c.Path(mappingKeyPath),
 	)
 	if err != nil {
@@ -29,7 +28,7 @@ func createRemoteCaller(c *cli.Context) (*remotecall.RemoteCall, error) {
 	return remoteCall, nil
 }
 
-func generateUpstreamUserName(response *remotecall.UserKeyAuthResponse) string {
+func generateUpstreamUserName(response *UserKeyAuthResponse) string {
 	return "user" + "." + response.Data.UUID
 }
 
@@ -56,21 +55,21 @@ func main() {
 				Name:     remoteAuthEndpoints,
 				Usage:    "cluster-url map for remote endpoint for retrieving user's private key(given as prod1=url)",
 				EnvVars:  []string{"SSHPIPERD_PRIVATE_KEY_ENDPOINTS"},
-				Value:    &remotecall.StringMapFlag{},
+				Value:    &StringMapFlag{},
 				Required: true,
 			},
 			&cli.GenericFlag{
 				Name:     remoteAuthEndpointsSecret,
 				Usage:    "cluster-secret map for cluster-url for auth(given as prod1=token)",
 				EnvVars:  []string{"SSHPIPERD_PRIVATE_KEY_ENDPOINTS_SECRET"},
-				Value:    &remotecall.StringMapFlag{},
+				Value:    &StringMapFlag{},
 				Required: true,
 			},
 			&cli.GenericFlag{
 				Name:     remoteEndpoints,
 				Usage:    "path to remote endpoint for forwarding traffic(given as prod1=url)",
 				EnvVars:  []string{"SSHPIPERD_IN_CLUSTER_ENDPOINTS"},
-				Value:    &remotecall.StringMapFlag{},
+				Value:    &StringMapFlag{},
 				Required: true,
 			},
 			&cli.StringFlag{
@@ -123,7 +122,7 @@ func getPublicKeyCallback(
 	conn libplugin.ConnMetadata,
 	key []byte,
 	keytype string,
-	caller *remotecall.RemoteCall,
+	caller *RemoteCall,
 ) (*libplugin.Upstream, error) {
 	clusterName, err := caller.GetClusterName(conn.User())
 	log.Debugf("username %s", conn.User())
@@ -174,7 +173,7 @@ func getPublicKeyCallback(
 		Auth:          libplugin.CreatePrivateKeyAuth(k),
 		IgnoreHostKey: true,
 	}
-	log.Debugf("final daata: %v", v)
+	log.Debugf("final data: %v", &v)
 
 	return &v, nil
 }

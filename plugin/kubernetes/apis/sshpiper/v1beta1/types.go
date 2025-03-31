@@ -20,14 +20,14 @@ type PipeSpec struct {
 }
 
 type FromSpec struct {
-	Username              string `json:"username"`
-	UsernameRegexMatch    bool   `json:"username_regex_match,omitempty"`
-	AuthorizedKeysData    string `json:"authorized_keys_data,omitempty"`
-	AuthorizedKeysFile    string `json:"authorized_keys_file,omitempty"`
-	TrustedUserCAKeysData string `json:"trusted_user_ca_keys_data,omitempty"`
-	TrustedUserCAKeysFile string `json:"trusted_user_ca_keys_file,omitempty"`
-	HtpasswdData          string `json:"htpasswd_data,omitempty"`
-	HtpasswdFile          string `json:"htpasswd_file,omitempty"`
+	Username              string   `json:"username"`
+	UsernameRegexMatch    bool     `json:"username_regex_match,omitempty"`
+	AuthorizedKeysData    []string `json:"authorized_keys_data,omitempty"`
+	AuthorizedKeysFile    []string `json:"authorized_keys_file,omitempty"`
+	TrustedUserCAKeysData []string `json:"trusted_user_ca_keys_data,omitempty"`
+	TrustedUserCAKeysFile []string `json:"trusted_user_ca_keys_file,omitempty"`
+	HtpasswdData          []string `json:"htpasswd_data,omitempty"`
+	HtpasswdFile          []string `json:"htpasswd_file,omitempty"`
 }
 
 type ToSpec struct {
@@ -35,7 +35,8 @@ type ToSpec struct {
 	Host             string                      `json:"host"`
 	PrivateKeySecret corev1.LocalObjectReference `json:"private_key_secret,omitempty"`
 	PasswordSecret   corev1.LocalObjectReference `json:"password_secret,omitempty"`
-	KnownHostsData   string                      `json:"known_hosts_data,omitempty"`
+	KnownHostsData   []string                    `json:"known_hosts_data,omitempty"`
+	KnownHostsFile   []string                    `json:"known_hosts_file,omitempty"`
 	IgnoreHostkey    bool                        `json:"ignore_hostkey,omitempty"`
 }
 

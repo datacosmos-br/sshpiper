@@ -63,7 +63,7 @@ func (s *skelpipeWrapper) From() []libplugin.SkelPipeFrom {
 			to:     &s.pipe.Spec.To,
 		}
 
-		if f.AuthorizedKeysData != "" || f.AuthorizedKeysFile != "" {
+		if len(f.AuthorizedKeysData) > 0 || len(f.AuthorizedKeysFile) > 0 {
 			froms = append(froms, &skelpipePublicKeyWrapper{
 				skelpipeFromWrapper: *w,
 			})
@@ -89,7 +89,14 @@ func (s *skelpipeToWrapper) IgnoreHostKey(conn libplugin.ConnMetadata) bool {
 }
 
 func (s *skelpipeToWrapper) KnownHosts(conn libplugin.ConnMetadata) ([]byte, error) {
-	return base64.StdEncoding.DecodeString(s.to.KnownHostsData)
+	khSources, err := loadStringAndFile(
+		s.to.KnownHostsData,
+		s.to.KnownHostsFile,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return bytes.Join(khSources, []byte("\n")), nil
 }
 
 func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (libplugin.SkelPipeTo, error) {
@@ -162,7 +169,7 @@ func (s *skelpipePasswordWrapper) TestPassword(conn libplugin.ConnMetadata, pass
 		}
 	}
 
-	return pwdmatched, nil // yaml do not test input password
+	return pwdmatched, nil
 }
 
 func (s *skelpipePublicKeyWrapper) AuthorizedKeys(conn libplugin.ConnMetadata) ([]byte, error) {
@@ -175,12 +182,14 @@ func (s *skelpipePublicKeyWrapper) AuthorizedKeys(conn libplugin.ConnMetadata) (
 }
 
 func (s *skelpipePublicKeyWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata) ([]byte, error) {
-	// Load CA keys from inline data and file if provided.
-	byteSlices, err := loadStringAndFile(s.from.TrustedUserCAKeysData, s.from.TrustedUserCAKeysFile)
+	caSources, err := loadStringAndFile(
+		s.from.TrustedUserCAKeysData,
+		s.from.TrustedUserCAKeysFile,
+	)
 	if err != nil {
 		return nil, err
 	}
-	return bytes.Join(byteSlices, []byte("\n")), nil
+	return bytes.Join(caSources, []byte("\n")), nil
 }
 
 func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([]byte, []byte, error) {
@@ -239,25 +248,27 @@ func (s *skelpipeToPasswordWrapper) OverridePassword(conn libplugin.ConnMetadata
 	return nil, nil
 }
 
-func loadStringAndFile(base64orraw string, filepath string) ([][]byte, error) {
+func loadStringAndFile(base64orraw []string, filepath []string) ([][]byte, error) {
+	var all [][]byte
 
-	all := make([][]byte, 0, 2)
-
-	if base64orraw != "" {
-		data, err := base64.StdEncoding.DecodeString(base64orraw)
-		if err != nil {
-			data = []byte(base64orraw)
+	for _, dataStr := range base64orraw {
+		// Attempt base64 decode; if that fails, treat it as raw data.
+		if decoded, err := base64.StdEncoding.DecodeString(dataStr); err == nil {
+			all = append(all, decoded)
+		} else {
+			all = append(all, []byte(dataStr))
 		}
-
-		all = append(all, data)
 	}
 
-	if filepath != "" {
-		data, err := os.ReadFile(filepath)
+	for _, path := range filepath {
+		// Expand placeholders and environment variables.
+		expanded := os.Expand(path, func(placeholderName string) string {
+			return os.Getenv(placeholderName)
+		})
+		data, err := os.ReadFile(expanded)
 		if err != nil {
 			return nil, err
 		}
-
 		all = append(all, data)
 	}
 

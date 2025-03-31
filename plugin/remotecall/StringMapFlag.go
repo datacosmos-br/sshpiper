@@ -1,4 +1,4 @@
-package remotecall
+package main
 
 import (
 	"fmt"
