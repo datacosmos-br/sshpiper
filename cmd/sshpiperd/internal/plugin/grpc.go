@@ -346,7 +346,7 @@ func (g *GrpcPlugin) createUpstream(conn ssh.ConnMetadata, challengeCtx ssh.Chal
 
 			caCertificate, ok := caPublicKey.(*ssh.Certificate)
 			if !ok {
-				return nil, fmt.Errorf("Failed to convert the caPublicKey to an ssh.Certificate")
+				return nil, fmt.Errorf("failed to convert the caPublicKey to an ssh.Certificate")
 			}
 
 			private, err = ssh.NewCertSigner(caCertificate, private)
@@ -552,7 +552,9 @@ func (g *GrpcPlugin) RecvLogs(writer io.Writer) error {
 			log.Errorf("recv log error: %v", err)
 			return err
 		}
-		fmt.Fprintln(writer, line.GetMessage())
+		if _, err := fmt.Fprintln(writer, line.GetMessage()); err != nil {
+			return fmt.Errorf("failed to write log message: %w", err)
+		}
 	}
 }
 

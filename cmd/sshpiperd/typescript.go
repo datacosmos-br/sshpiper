@@ -30,9 +30,7 @@ func newFilePtyLogger(outputdir string) (*filePtyLogger, error) {
 		return nil, err
 	}
 
-	_, err = typescript.Write([]byte(fmt.Sprintf("Script started on %v\n", now.Format(time.ANSIC))))
-
-	if err != nil {
+	if _, err = fmt.Fprintf(typescript, "Script started on %v\n", now.Format(time.ANSIC)); err != nil {
 		return nil, err
 	}
 
@@ -60,7 +58,9 @@ func (l *filePtyLogger) loggingTty(msg []byte) ([]byte, error) {
 		delta := now.Sub(l.oldtime)
 
 		// see term-utils/script.c
-		fmt.Fprintf(l.timing, "%v.%06v %v\n", int64(delta/time.Second), int64(delta%time.Second/time.Microsecond), len(buf))
+		if _, err := fmt.Fprintf(l.timing, "%v.%06v %v\n", int64(delta/time.Second), int64(delta%time.Second/time.Microsecond), len(buf)); err != nil {
+			return msg, err
+		}
 
 		l.oldtime = now
 
@@ -76,13 +76,14 @@ func (l *filePtyLogger) loggingTty(msg []byte) ([]byte, error) {
 }
 
 func (l *filePtyLogger) Close() (err error) {
-	// if _, err = ; err != nil {
-	// return err
-	// }
-	_, _ = l.typescript.Write([]byte(fmt.Sprintf("Script done on %v\n", time.Now().Format(time.ANSIC))))
-
-	l.typescript.Close()
-	l.timing.Close()
-
-	return nil // TODO
+	if _, err = fmt.Fprintf(l.typescript, "Script done on %v\n", time.Now().Format(time.ANSIC)); err != nil {
+		return err
+	}
+	if cerr := l.typescript.Close(); cerr != nil {
+		return cerr
+	}
+	if cerr := l.timing.Close(); cerr != nil {
+		return cerr
+	}
+	return nil
 }

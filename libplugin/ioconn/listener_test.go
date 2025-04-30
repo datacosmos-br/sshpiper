@@ -20,8 +20,16 @@ func TestListenFromSingleIO(t *testing.T) {
 		t.Errorf("Accept returned an error: %v", err)
 	}
 
-	defer conn.Close()
-	defer l.Close()
+	defer func() {
+		if cerr := conn.Close(); cerr != nil {
+			t.Errorf("failed to close conn: %v", cerr)
+		}
+	}()
+	defer func() {
+		if cerr := l.Close(); cerr != nil {
+			t.Errorf("failed to close listener: %v", cerr)
+		}
+	}()
 
 	go func() {
 		_, _ = conn.Write([]byte("hello"))

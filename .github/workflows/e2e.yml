@@ -14,7 +14,7 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v4
       with:
-        ref: ${{ github.event.workflow_run.head_sha }}
+        ref: ${{ github.sha }}
         submodules: 'recursive'      
 
     - name: Set up Docker Buildx
@@ -29,5 +29,4 @@ jobs:
       env:
         COMPOSE_DOCKER_CLI_BUILD: "1"
         DOCKER_BUILDKIT: "1"
-
 

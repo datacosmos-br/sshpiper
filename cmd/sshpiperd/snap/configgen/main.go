@@ -30,7 +30,11 @@ func extractFlags(namespace, filePath string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer file.Close()
+	defer func() {
+		if cerr := file.Close(); cerr != nil {
+			log.Printf("failed to close file: %v", cerr)
+		}
+	}()
 
 	fset := token.NewFileSet()
 

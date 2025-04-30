@@ -251,11 +251,7 @@ func main() {
 			args := ctx.Args().Slice()
 			remain := args
 
-			for {
-				if len(remain) <= 0 {
-					break
-				}
-
+			for len(remain) > 0 {
 				args, remain = splitByDash(remain)
 
 				if len(args) <= 0 {
@@ -310,7 +306,8 @@ func main() {
 			}
 
 			go func() {
-				quit <- d.run()
+				d.run()
+				quit <- nil
 			}()
 
 			return <-quit

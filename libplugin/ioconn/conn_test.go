@@ -14,7 +14,11 @@ func TestDial(t *testing.T) {
 	if err != nil {
 		t.Errorf("Dial returned an error: %v", err)
 	}
-	defer conn.Close()
+	defer func() {
+		if cerr := conn.Close(); cerr != nil {
+			t.Errorf("failed to close conn: %v", cerr)
+		}
+	}()
 
 	go func() {
 

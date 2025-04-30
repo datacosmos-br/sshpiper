@@ -48,7 +48,9 @@ func waitForEndpointReadyWithTimeout(addr string, timeout time.Duration) {
 		conn, err := net.Dial("tcp", addr)
 		if err == nil {
 			log.Printf("endpoint %s is ready", addr)
-			conn.Close()
+			if err := conn.Close(); err != nil {
+				log.Printf("failed to close endpoint connection: %v", err)
+			}
 			break
 		}
 		time.Sleep(time.Second)
@@ -108,7 +110,7 @@ func waitForStdoutContains(stdout io.Reader, text string, cb func(string)) {
 
 func enterPassword(stdin io.Writer, stdout io.Reader, password string) {
 	waitForStdoutContains(stdout, "'s password", func(_ string) {
-		_, _ = stdin.Write([]byte(fmt.Sprintf("%v\n", password)))
+		_, _ = fmt.Fprintf(stdin, "%v\n", password)
 		log.Printf("got password prompt, sending password")
 	})
 }
@@ -118,7 +120,11 @@ func checkSharedFileContent(t *testing.T, targetfie string, expected string) {
 	if err != nil {
 		t.Errorf("failed to open shared file, %v", err)
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil {
+			t.Errorf("failed to close shared file: %v", cerr)
+		}
+	}()
 
 	b, err := io.ReadAll(f)
 	if err != nil {
@@ -157,7 +163,11 @@ func nextAvaliablePort() int {
 	if err != nil {
 		log.Panic(err)
 	}
-	defer l.Close()
+	defer func() {
+		if cerr := l.Close(); cerr != nil {
+			log.Printf("failed to close listener: %v", cerr)
+		}
+	}()
 	return l.Addr().(*net.TCPAddr).Port
 }
 

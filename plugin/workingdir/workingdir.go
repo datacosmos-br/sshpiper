@@ -41,7 +41,11 @@ func (w *workingdir) checkPerm(file string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil {
+			fmt.Printf("failed to close file: %v\n", cerr)
+		}
+	}()
 
 	fi, err := f.Stat()
 	if err != nil {

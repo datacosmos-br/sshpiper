@@ -67,7 +67,7 @@ func (l *listOrString) UnmarshalYAML(value *yaml.Node) error {
 		l.Str = str
 		return nil
 	}
-	return fmt.Errorf("Failed to unmarshal OneOfType")
+	return fmt.Errorf("failed to unmarshal OneOfType")
 }
 
 type yamlPipe struct {
@@ -96,7 +96,11 @@ func (p *plugin) checkPerm(filename string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil {
+			fmt.Printf("failed to close file: %v\n", cerr)
+		}
+	}()
 
 	fi, err := f.Stat()
 	if err != nil {

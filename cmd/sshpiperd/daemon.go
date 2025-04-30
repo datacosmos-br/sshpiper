@@ -173,8 +173,16 @@ func (d *daemon) install(plugins ...*plugin.GrpcPlugin) error {
 	return m.InstallPiperConfig(d.config)
 }
 
-func (d *daemon) run() error {
-	defer d.lis.Close()
+func (d *daemon) run() {
+	err := error(nil)
+	defer func() {
+		if cerr := d.lis.Close(); cerr != nil {
+			log.Errorf("failed to close listener: %v", cerr)
+			if err == nil {
+				err = cerr
+			}
+		}
+	}()
 	log.Infof("sshpiperd is listening on: %v", d.lis.Addr().String())
 
 	for {
@@ -187,7 +195,11 @@ func (d *daemon) run() error {
 		log.Debugf("connection accepted: %v", conn.RemoteAddr())
 
 		go func(c net.Conn) {
-			defer c.Close()
+			defer func() {
+				if cerr := c.Close(); cerr != nil {
+					log.Errorf("failed to close connection: %v", cerr)
+				}
+			}()
 
 			pipec := make(chan *ssh.PiperConn)
 			errorc := make(chan error)
@@ -243,24 +255,33 @@ func (d *daemon) run() error {
 					log.Errorf("cannot create screen recording dir %v: %v", recorddir, err)
 					return
 				}
-				if d.recordfmt == "asciicast" {
+				switch d.recordfmt {
+				case "asciicast":
 					prefix := ""
 					if d.usernameAsRecorddir {
 						// add prefix to avoid conflict
 						prefix = fmt.Sprintf("%d-", time.Now().Unix())
 					}
 					recorder := newAsciicastLogger(recorddir, prefix)
-					defer recorder.Close()
+					defer func() {
+						if cerr := recorder.Close(); cerr != nil {
+							log.Errorf("failed to close asciicast recorder: %v", cerr)
+						}
+					}()
 
 					uphook = recorder.uphook
 					downhook = recorder.downhook
-				} else if d.recordfmt == "typescript" {
+				case "typescript":
 					recorder, err := newFilePtyLogger(recorddir)
 					if err != nil {
 						log.Errorf("cannot create screen recording logger: %v", err)
 						return
 					}
-					defer recorder.Close()
+					defer func() {
+						if cerr := recorder.Close(); cerr != nil {
+							log.Errorf("failed to close typescript recorder: %v", cerr)
+						}
+					}()
 
 					uphook = recorder.loggingTty
 				}

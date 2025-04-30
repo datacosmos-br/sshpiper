@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 )
 
 const yamlConfigTemplate = `
@@ -106,163 +107,96 @@ pipes:
     private_key: {{ .PrivateKey }}
 `
 
-func TestYaml(t *testing.T) {
-
+func setupTestEnvironment(t *testing.T) (string, *os.File) {
+	t.Helper()
 	yamldir, err := os.MkdirTemp("", "")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
+	require.NoError(t, err, "Failed to create temp dir")
 
 	yamlfile, err := os.OpenFile(path.Join(yamldir, "config.yaml"), os.O_RDWR|os.O_CREATE, 0400)
-	if err != nil {
-		t.Fatalf("Failed to create temp file: %v", err)
+	require.NoError(t, err, "Failed to create temp file")
+
+	return yamldir, yamlfile
+}
+
+func generateKeys(t *testing.T, yamldir string) {
+	t.Helper()
+	keyPairs := []string{"id_rsa_simple", "id_rsa_catchall", "id_rsa"}
+
+	for _, keyName := range keyPairs {
+		require.NoError(t, runCmdAndWait("rm", "-f", path.Join(yamldir, keyName)))
+		require.NoError(t, runCmdAndWait(
+			"ssh-keygen",
+			"-N",
+			"",
+			"-f",
+			path.Join(yamldir, keyName),
+		))
 	}
 
-	{
-		// simple key
-		if err := runCmdAndWait("rm", "-f", path.Join(yamldir, "id_rsa_simple")); err != nil {
-			t.Errorf("failed to remove id_rsa: %v", err)
-		}
+	require.NoError(t, runCmdAndWait(
+		"/bin/cp",
+		path.Join(yamldir, "id_rsa.pub"),
+		"/publickey_authorized_keys/authorized_keys",
+	))
 
-		if err := runCmdAndWait(
-			"ssh-keygen",
-			"-N",
-			"",
-			"-f",
-			path.Join(yamldir, "id_rsa_simple"),
-		); err != nil {
-			t.Errorf("failed to generate private key: %v", err)
-		}
+	// Generate CA keys
+	require.NoError(t, runCmdAndWait(
+		"ssh-keygen",
+		"-N",
+		"",
+		"-f",
+		path.Join(yamldir, "ca_key"),
+	))
 
-		// catch all key
-		if err := runCmdAndWait("rm", "-f", path.Join(yamldir, "id_rsa_catchall")); err != nil {
-			t.Errorf("failed to remove id_rsa: %v", err)
-		}
+	require.NoError(t, runCmdAndWait(
+		"ssh-keygen",
+		"-N",
+		"",
+		"-f",
+		path.Join(yamldir, "user_ca_key"),
+	))
 
-		if err := runCmdAndWait(
-			"ssh-keygen",
-			"-N",
-			"",
-			"-f",
-			path.Join(yamldir, "id_rsa_catchall"),
-		); err != nil {
-			t.Errorf("failed to generate private key: %v", err)
-		}
+	require.NoError(t, runCmdAndWait(
+		"ssh-keygen",
+		"-s",
+		path.Join(yamldir, "ca_key"),
+		"-I",
+		"cert",
+		"-n",
+		"cert",
+		"-V",
+		"+1w",
+		path.Join(yamldir, "user_ca_key.pub"),
+	))
+}
 
-		// upstream key
-		if err := runCmdAndWait("rm", "-f", path.Join(yamldir, "id_rsa")); err != nil {
-			t.Errorf("failed to remove id_rsa: %v", err)
-		}
+func TestYaml(t *testing.T) {
+	yamldir, yamlfile := setupTestEnvironment(t)
+	generateKeys(t, yamldir)
+	knownHostsKeyData, err := runAndGetStdout("ssh-keyscan", "-p", "2222", "host-publickey")
+	require.NoError(t, err, "Failed to run ssh-keyscan for host-publickey")
+	knownHostsPassData, err := runAndGetStdout("ssh-keyscan", "-p", "2222", "host-password")
+	require.NoError(t, err, "Failed to run ssh-keyscan for host-password")
 
-		if err := runCmdAndWait(
-			"ssh-keygen",
-			"-N",
-			"",
-			"-f",
-			path.Join(yamldir, "id_rsa"),
-		); err != nil {
-			t.Errorf("failed to generate private key: %v", err)
-		}
-
-		if err := runCmdAndWait(
-			"/bin/cp",
-			path.Join(yamldir, "id_rsa.pub"),
-			"/publickey_authorized_keys/authorized_keys",
-		); err != nil {
-			t.Errorf("failed to copy public key: %v", err)
-		}
-
-		// ssh ca
-		if err := runCmdAndWait(
-			"ssh-keygen",
-			"-N",
-			"",
-			"-f",
-			path.Join(yamldir, "ca_key"),
-		); err != nil {
-			t.Errorf("failed to generate ca key: %v", err)
-		}
-
-		if err := runCmdAndWait(
-			"ssh-keygen",
-			"-N",
-			"",
-			"-f",
-			path.Join(yamldir, "user_ca_key"),
-		); err != nil {
-			t.Errorf("failed to generate user ca key: %v", err)
-		}
-
-		if err := runCmdAndWait(
-			"ssh-keygen",
-			"-s",
-			path.Join(yamldir, "ca_key"),
-			"-I",
-			"cert",
-			"-n",
-			"cert",
-			"-V",
-			"+1w",
-			path.Join(yamldir, "user_ca_key.pub"),
-		); err != nil {
-			t.Errorf("failed to sign user ca key: %v", err)
-		}
-
-		// simple key for group
-		if err := runCmdAndWait("rm", "-f", path.Join(yamldir, "id_rsa_simple_group")); err != nil {
-			t.Errorf("failed to remove id_rsa for group: %v", err)
-		}
-
-	}
-
-	knownHostsKeyData, err := runAndGetStdout(
-		"ssh-keyscan",
-		"-p",
-		"2222",
-		"host-publickey",
-	)
-
-	if err != nil {
-		t.Errorf("failed to run ssh-keyscan: %v", err)
-	}
-
-	knownHostsPassData, err := runAndGetStdout(
-		"ssh-keyscan",
-		"-p",
-		"2222",
-		"host-password",
-	)
-
-	if err != nil {
-		t.Errorf("failed to run ssh-keyscan : %v", err)
-	}
-	if err := template.Must(template.New("yaml").Parse(yamlConfigTemplate)).ExecuteTemplate(yamlfile, "yaml", struct {
-		KnownHostsKey  string
-		KnownHostsPass string
-		PrivateKey     string
-
+	templateData := struct {
+		KnownHostsKey           string
+		KnownHostsPass          string
+		PrivateKey              string
 		AuthorizedKeys_Simple   string
 		AuthorizedKeys_Catchall string
-
-		TrustedUserCAKeys string
+		TrustedUserCAKeys       string
 	}{
-		KnownHostsKey:  base64.StdEncoding.EncodeToString(knownHostsKeyData),
-		KnownHostsPass: base64.StdEncoding.EncodeToString(knownHostsPassData),
-		PrivateKey:     path.Join(yamldir, "id_rsa"),
-
+		KnownHostsKey:           base64.StdEncoding.EncodeToString(knownHostsKeyData),
+		KnownHostsPass:          base64.StdEncoding.EncodeToString(knownHostsPassData),
+		PrivateKey:              path.Join(yamldir, "id_rsa"),
 		AuthorizedKeys_Simple:   path.Join(yamldir, "id_rsa_simple.pub"),
 		AuthorizedKeys_Catchall: path.Join(yamldir, "id_rsa_catchall.pub"),
-
-		TrustedUserCAKeys: path.Join(yamldir, "ca_key.pub"),
-	}); err != nil {
-		t.Fatalf("Failed to write yaml file %v", err)
+		TrustedUserCAKeys:       path.Join(yamldir, "ca_key.pub"),
 	}
 
-	// dump config.yaml to stdout
-	_ = runCmdAndWait("cat", "-n", path.Join(yamldir, "config.yaml"))
+	require.NoError(t, template.Must(template.New("yaml").Parse(yamlConfigTemplate)).ExecuteTemplate(yamlfile, "yaml", templateData))
 
 	piperaddr, piperport := nextAvailablePiperAddress()
-
 	piper, _, _, err := runCmd("/sshpiperd/sshpiperd",
 		"-p",
 		piperport,
@@ -270,383 +204,75 @@ func TestYaml(t *testing.T) {
 		"--config",
 		yamlfile.Name(),
 	)
-
-	if err != nil {
-		t.Errorf("failed to run sshpiperd: %v", err)
-	}
-
+	require.NoError(t, err, "Failed to run sshpiperd")
 	defer killCmd(piper)
+
 	waitForEndpointReady(piperaddr)
 
-	t.Run("password_simple", func(t *testing.T) {
-		randtext := uuid.New().String()
-		targetfie := uuid.New().String()
-
-		c, stdin, stdout, err := runCmd(
-			"ssh",
-			"-v",
-			"-o",
-			"StrictHostKeyChecking=no",
-			"-o",
-			"UserKnownHostsFile=/dev/null",
-			"-p",
-			piperport,
-			"-l",
-			"password_simple",
-			"127.0.0.1",
-			fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
-		)
-
-		if err != nil {
-			t.Errorf("failed to ssh to piper, %v", err)
-		}
-
-		defer killCmd(c)
-
-		enterPassword(stdin, stdout, "pass")
-
-		time.Sleep(time.Second) // wait for file flush
-
-		checkSharedFileContent(t, targetfie, randtext)
-	})
-
-	t.Run("password_regex", func(t *testing.T) {
-		randtext := uuid.New().String()
-		targetfie := uuid.New().String()
-
-		c, stdin, stdout, err := runCmd(
-			"ssh",
-			"-v",
-			"-o",
-			"StrictHostKeyChecking=no",
-			"-o",
-			"UserKnownHostsFile=/dev/null",
-			"-p",
-			piperport,
-			"-l",
-			"password_XXX_regex",
-			"127.0.0.1",
-			fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
-		)
-
-		if err != nil {
-			t.Errorf("failed to ssh to piper, %v", err)
-		}
-
-		defer killCmd(c)
-
-		enterPassword(stdin, stdout, "pass")
-
-		time.Sleep(time.Second) // wait for file flush
-
-		checkSharedFileContent(t, targetfie, randtext)
-	})
-
-	t.Run("password_regex_expand", func(t *testing.T) {
-		randtext := uuid.New().String()
-		targetfie := uuid.New().String()
-
-		c, stdin, stdout, err := runCmd(
-			"ssh",
-			"-v",
-			"-o",
-			"StrictHostKeyChecking=no",
-			"-o",
-			"UserKnownHostsFile=/dev/null",
-			"-p",
-			piperport,
-			"-l",
-			"password_user_regex_expand",
-			"127.0.0.1",
-			fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
-		)
-
-		if err != nil {
-			t.Errorf("failed to ssh to piper, %v", err)
-		}
-
-		defer killCmd(c)
-
-		enterPassword(stdin, stdout, "pass")
-
-		time.Sleep(time.Second) // wait for file flush
-
-		checkSharedFileContent(t, targetfie, randtext)
-	})
-
-	t.Run("publickey_simple", func(t *testing.T) {
-		randtext := uuid.New().String()
-		targetfie := uuid.New().String()
-
-		c, _, _, err := runCmd(
-			"ssh",
-			"-v",
-			"-o",
-			"StrictHostKeyChecking=no",
-			"-o",
-			"UserKnownHostsFile=/dev/null",
-			"-p",
-			piperport,
-			"-l",
-			"publickey_simple",
-			"-i",
-			path.Join(yamldir, "id_rsa_simple"),
-			"127.0.0.1",
-			fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
-		)
-
-		if err != nil {
-			t.Errorf("failed to ssh to piper, %v", err)
-		}
-
-		defer killCmd(c)
-
-		time.Sleep(time.Second) // wait for file flush
-
-		checkSharedFileContent(t, targetfie, randtext)
-	})
-
-	t.Run("catch_all", func(t *testing.T) {
-		randtext := uuid.New().String()
-		targetfie := uuid.New().String()
-
-		c, _, _, err := runCmd(
-			"ssh",
-			"-v",
-			"-o",
-			"StrictHostKeyChecking=no",
-			"-o",
-			"UserKnownHostsFile=/dev/null",
-			"-p",
-			piperport,
-			"-l",
-			"anyusername",
-			"-i",
-			path.Join(yamldir, "id_rsa_catchall"),
-			"127.0.0.1",
-			fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
-		)
-
-		if err != nil {
-			t.Errorf("failed to ssh to piper, %v", err)
-		}
-
-		defer killCmd(c)
-
-		time.Sleep(time.Second) // wait for file flush
-
-		checkSharedFileContent(t, targetfie, randtext)
-	})
-
-	t.Run("publickey_simple_withmultiple_keyfile", func(t *testing.T) {
-		randtext := uuid.New().String()
-		targetfie := uuid.New().String()
-
-		wrongkeydir, err := os.MkdirTemp("", "")
-		if err != nil {
-			t.Errorf("failed to create temp key file: %v", err)
-		}
-
-		wrongkeyfile := path.Join(wrongkeydir, "key")
-
-		if err := runCmdAndWait(
-			"ssh-keygen",
-			"-N",
-			"",
-			"-f",
-			wrongkeyfile,
-		); err != nil {
-			t.Errorf("failed to generate key: %v", err)
-		}
-
-		c, _, _, err := runCmd(
-			"ssh",
-			"-v",
-			"-o",
-			"StrictHostKeyChecking=no",
-			"-o",
-			"UserKnownHostsFile=/dev/null",
-			"-p",
-			piperport,
-			"-l",
-			"publickey_simple",
-			"-i",
-			wrongkeyfile,
-			"-i",
-			path.Join(yamldir, "id_rsa_simple"),
-			"127.0.0.1",
-			fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
-		)
-
-		if err != nil {
-			t.Errorf("failed to ssh to piper, %v", err)
-		}
-
-		defer killCmd(c)
-
-		time.Sleep(time.Second) // wait for file flush
-
-		checkSharedFileContent(t, targetfie, randtext)
-	})
-
-	t.Run("ssh_cert", func(t *testing.T) {
-		randtext := uuid.New().String()
-		targetfie := uuid.New().String()
-
-		c, _, _, err := runCmd(
-			"ssh",
-			"-v",
-			"-o",
-			"StrictHostKeyChecking=no",
-			"-o",
-			"UserKnownHostsFile=/dev/null",
-			"-o",
-			fmt.Sprintf("CertificateFile=%v", path.Join(yamldir, "user_ca_key-cert.pub")),
-			"-p",
-			piperport,
-			"-l",
-			"cert",
-			"-i",
-			path.Join(yamldir, "user_ca_key"),
-			"127.0.0.1",
-			fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
-		)
-
-		if err != nil {
-			t.Errorf("failed to ssh to piper, %v", err)
-		}
-
-		defer killCmd(c)
-
-		time.Sleep(time.Second) // wait for file flush
-
-		checkSharedFileContent(t, targetfie, randtext)
-	})
-
-	t.Run("publickey_simple_group", func(t *testing.T) {
-		randtext := uuid.New().String()
-		targetfie := uuid.New().String()
-
-		c, _, _, err := runCmd(
-			"ssh",
-			"-v",
-			"-o",
-			"StrictHostKeyChecking=no",
-			"-o",
-			"UserKnownHostsFile=/dev/null",
-			"-p",
-			piperport,
-			"-l",
-			"testuser",
-			"-i",
-			path.Join(yamldir, "id_rsa_simple"),
-			"127.0.0.1",
-			fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
-		)
-
-		if err != nil {
-			t.Errorf("failed to ssh to piper, %v", err)
-		}
-
-		defer killCmd(c)
-
-		time.Sleep(time.Second) // wait for file flush
-
-		checkSharedFileContent(t, targetfie, randtext)
-	})
-
-	t.Run("testuser_group_routing", func(t *testing.T) {
-		randtext := uuid.New().String()
-		targetfie := uuid.New().String()
-
-		c, _, _, err := runCmd(
-			"ssh",
-			"-v",
-			"-o",
-			"StrictHostKeyChecking=no",
-			"-o",
-			"UserKnownHostsFile=/dev/null",
-			"-p",
-			piperport,
-			"-l",
-			"testuser",
-			"-i",
-			path.Join(yamldir, "id_rsa_simple"),
-			"127.0.0.1",
-			fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
-		)
-
-		if err != nil {
-			t.Errorf("failed to ssh to piper, %v", err)
-		}
-
-		defer killCmd(c)
-
-		time.Sleep(time.Second) // wait for file flush
-
-		checkSharedFileContent(t, targetfie, randtext)
-	})
-
-	t.Run("non_group_user_should_fail", func(t *testing.T) {
-		randtext := uuid.New().String()
-		targetfie := uuid.New().String()
-
-		c, _, _, err := runCmd(
-			"ssh",
-			"-v",
-			"-o",
-			"StrictHostKeyChecking=no",
-			"-o",
-			"UserKnownHostsFile=/dev/null",
-			"-p",
-			piperport,
-			"-l",
-			"intruder",
-			"-i",
-			path.Join(yamldir, "id_rsa_simple"),
-			"127.0.0.1",
-			fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
-		)
-
-		if err != nil {
-			t.Errorf("expected failure, %v", err)
-		}
-
-		defer killCmd(c)
-
-		time.Sleep(time.Second) // wait for file flush
-
-	})
+	testCases := []struct {
+		name     string
+		username string
+		keyPath  string
+		usePass  bool
+	}{
+		{"password_simple", "password_simple", "", true},
+		{"password_regex", "password_XXX_regex", "", true},
+		{"password_regex_expand", "password_user_regex_expand", "", true},
+		{"publickey_simple", "publickey_simple", path.Join(yamldir, "id_rsa_simple"), false},
+		{"catch_all", "anyusername", path.Join(yamldir, "id_rsa_catchall"), false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			randtext := uuid.New().String()
+			targetfile := uuid.New().String()
+
+			args := []string{
+				"-v",
+				"-o", "StrictHostKeyChecking=no",
+				"-o", "UserKnownHostsFile=/dev/null",
+				"-p", piperport,
+				"-l", tc.username,
+			}
+
+			if tc.keyPath != "" {
+				args = append(args, "-i", tc.keyPath)
+			}
+
+			args = append(args, "127.0.0.1", fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfile))
+			c, stdin, stdout, err := runCmd("ssh", args...)
+			require.NoError(t, err, "Failed to ssh to piper")
+			defer killCmd(c)
+
+			if tc.usePass {
+				enterPassword(stdin, stdout, "pass")
+			}
+
+			time.Sleep(time.Second)
+			checkSharedFileContent(t, targetfile, randtext)
+		})
+	}
 }
 
-t.Run("group_routing_password", func(t *testing.T) {
+func TestGroupRoutingPassword(t *testing.T) {
 	randtext := uuid.New().String()
-	targetfie := uuid.New().String()
+	targetfile := uuid.New().String()
 
 	c, stdin, stdout, err := runCmd(
 		"ssh",
 		"-v",
-		"-o",
-		"StrictHostKeyChecking=no",
-		"-o",
-		"UserKnownHostsFile=/dev/null",
-		"-p",
-		piperport,
-		"-l",
-		"testuser",
+		"-o", "StrictHostKeyChecking=no",
+		"-o", "UserKnownHostsFile=/dev/null",
+		"-p", "2222",
+		"-l", "testuser",
 		"127.0.0.1",
-		fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
+		fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfile),
 	)
-
-	if err != nil {
-		t.Errorf("failed to ssh to piper, %v", err)
-	}
-
+	require.NoError(t, err, "Failed to ssh to piper")
 	defer killCmd(c)
 
 	enterPassword(stdin, stdout, "pass")
 
-	time.Sleep(time.Second) // wait for file flush
-
-	checkSharedFileContent(t, targetfie, randtext)
-})
+	time.Sleep(time.Second)
+	checkSharedFileContent(t, targetfile, randtext)
+}

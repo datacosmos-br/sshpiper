@@ -143,7 +143,11 @@ func TestGrpcPlugin(t *testing.T) {
 			return nil, nil
 		},
 	})
-	defer sshsvr.Close()
+	defer func() {
+		if err := sshsvr.Close(); err != nil {
+			t.Errorf("failed to close sshsvr: %v", err)
+		}
+	}()
 
 	cbtriggered := make(map[string]bool)
 
@@ -165,7 +169,11 @@ func TestGrpcPlugin(t *testing.T) {
 			return nil
 		},
 	})
-	defer rpcsvr.Close()
+	defer func() {
+		if err := rpcsvr.Close(); err != nil {
+			t.Errorf("failed to close rpcsvr: %v", err)
+		}
+	}()
 
 	piperaddr, piperport := nextAvailablePiperAddress()
 
@@ -201,7 +209,9 @@ func TestGrpcPlugin(t *testing.T) {
 		t.Fatalf("failed to connect to sshpiperd: %v", err)
 	}
 
-	client.Close()
+	if err := client.Close(); err != nil {
+		t.Errorf("failed to close ssh client: %v", err)
+	}
 
 	time.Sleep(1 * time.Second) // wait for callbacks to be triggered
 

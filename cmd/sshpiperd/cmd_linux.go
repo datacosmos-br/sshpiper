@@ -11,6 +11,6 @@ func setPdeathsig(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Pdeathsig: syscall.SIGTERM}
 }
 
-func addProcessToJob(cmd *exec.Cmd) error {
+func addProcessToJob(_ *exec.Cmd) error {
 	return nil
 }

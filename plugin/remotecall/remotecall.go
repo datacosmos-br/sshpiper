@@ -65,7 +65,7 @@ func InitRemoteCall(
 	}
 
 	var socketHttpClient *http.Client
-	if userClusterNameURLIsSocket == true {
+	if userClusterNameURLIsSocket {
 		socketHttpClient = createSocketHttpClient(userClusterNameURLSocketEndpoint)
 	}
 
@@ -150,7 +150,7 @@ func (r *RemoteCall) GetClusterName(username string) (string, error) {
 	req.Header.Set(AuthTokenUserClusterMapping, r.userClusterToken)
 	userClusterResponse := UserClusterResponse{}
 	httpClient := r.httpClient
-	if r.userClusterURLIsSocket == true {
+	if r.userClusterURLIsSocket {
 		httpClient = r.socketHttpClient
 	}
 	err = r.performHttpRequest(req, httpClient, &userClusterResponse)
@@ -170,9 +170,11 @@ func (r *RemoteCall) performHttpRequest(req *http.Request, httpClient *http.Clie
 	if err != nil {
 		return fmt.Errorf("error making request: %w", err)
 	}
-	if resp != nil && resp.Body != nil {
-		defer resp.Body.Close()
-	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			fmt.Printf("failed to close response body: %v\n", cerr)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, err := io.ReadAll(resp.Body)
