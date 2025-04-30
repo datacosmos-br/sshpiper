@@ -255,6 +255,7 @@ func TestYaml(t *testing.T) {
 }
 
 func TestGroupRoutingPassword(t *testing.T) {
+	waitForEndpointReady("127.0.0.1:2222")
 	randtext := uuid.New().String()
 	targetfile := uuid.New().String()
 
