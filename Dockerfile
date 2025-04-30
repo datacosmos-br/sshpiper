@@ -7,28 +7,31 @@ ARG EXTERNAL="0"
 
 ENV CGO_ENABLED=0
 
-RUN mkdir -p /sshpiperd/plugins
-WORKDIR /app
+WORKDIR /src
 
 # Initialize and update submodules (recursive)
 COPY . .
-RUN git config --global --add safe.directory /app
+RUN git config --global --add safe.directory /src
 RUN git submodule update --init --recursive
 
-RUN --mount=type=cache,target=/root/.cache/go-build \
-    go build -tags "$BUILDTAGS" -ldflags "-X main.mainver=$VER" -o /sshpiperd ./cmd/...
-RUN --mount=type=cache,target=/root/.cache/go-build \
-    go build -tags "$BUILDTAGS" -o /sshpiperd/plugins ./plugin/...
-RUN --mount=type=cache,target=/root/.cache/go-build \
-    go build -tags "e2e" -o /sshpiperd/plugins/testsetmetaplugin ./e2e/testplugin/testsetmetaplugin
-RUN --mount=type=cache,target=/root/.cache/go-build \
-    go build -tags "e2e" -o /sshpiperd/plugins/testgetmetaplugin ./e2e/testplugin/testgetmetaplugin
-RUN --mount=type=cache,target=/root/.cache/go-build \
-    go build -tags "e2e" -o /sshpiperd/plugins/testgrpcplugin ./e2e/testplugin/testgrpcplugin
+RUN \
+  --mount=target=/src,type=bind,source=. \
+  --mount=type=cache,target=/root/.cache/go-build \
+  <<HEREDOC
+    # Create directories required for `cp` / `go build -o`:
+    mkdir -p /sshpiperd/plugins
 
-COPY entrypoint.sh /sshpiperd
+    if [ "${EXTERNAL}" = "1" ]; then
+      cp sshpiperd /sshpiperd
+      cp -r plugins /sshpiperd
+    else
+      go build -o /sshpiperd  -tags "${BUILDTAGS}" -ldflags "-X main.mainver=${VER}" ./cmd/...
+      go build -o /sshpiperd/plugins -tags "${BUILDTAGS}" ./plugin/... ./e2e/testplugin/...
+    fi
+HEREDOC
+ADD entrypoint.sh /sshpiperd
 
-FROM builder AS testrunner
+FROM builder as testrunner
 RUN apt update && apt install -y autoconf automake libssl-dev libz-dev
 
 COPY --from=farmer1992/openssh-static:V_9_8_P1 /usr/bin/ssh /usr/bin/ssh-9.8p1
@@ -42,14 +45,22 @@ RUN mkdir -p /etc/ssh/
 # Add user nobody with id 1
 ARG USERID=1000
 ARG GROUPID=1000
-RUN addgroup -g $GROUPID -S sshpiperd && adduser -u $USERID -S sshpiperd -G sshpiperd
+RUN <<HEREDOC
+  # Add a non-root system (-S) user/group to run `sshpiperd` with (final arg is group/user name):
+  addgroup -S -g "${GROUPID}" sshpiperd 
+  adduser  -S -u "${USERID}" -G sshpiperd sshpiperd
 
-# Add execution rwx to user 1
-RUN chown -R $USERID:$GROUPID /etc/ssh/
+  # Support `SSHPIPERD_SERVER_KEY_GENERATE_MODE=notexist` to create host key at `/etc/ssh`:
+  mkdir /etc/ssh/
+  chown -R "${USERID}:${GROUPID}" /etc/ssh/
+HEREDOC
+COPY --from=builder --chown=${USERID} /sshpiperd/ /sshpiperd
 
-USER $USERID:$GROUPID
+# Runtime setup:
+USER ${USERID}:${GROUPID}
 
 COPY --from=builder --chown=$USERID:$GROUPID /sshpiperd/ /sshpiperd
+
 EXPOSE 2222
 
 ENTRYPOINT ["/sshpiperd/entrypoint.sh"]

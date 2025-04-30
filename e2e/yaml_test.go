@@ -95,6 +95,28 @@ pipes:
     username: "user"
     ignore_hostkey: true
 - from:
+    - username: "cert"
+      trusted_user_ca_keys: {{ .TrustedUserCAKeys }}
+  to:
+    host: host-publickey:2222
+    username: "user"
+    ignore_hostkey: true
+    private_key: {{ .PrivateKey }}
+- from:
+    - groupname: "testgroup"
+      authorized_keys: {{ .AuthorizedKeys_Simple }}
+  to:
+    host: host-publickey:2222
+    username: "user"
+    private_key: {{ .PrivateKey }}
+    known_hosts_data: {{ .KnownHostsKey }}
+- from:
+    - groupname: "testgroup"
+  to:
+    host: host-password:2222
+    username: "user"
+    ignore_hostkey: true
+- from:
     - username: ".*"
       username_regex_match: true
       authorized_keys: 
