@@ -348,7 +348,3 @@ func TestParallelSessions(t *testing.T) {
 	}
 	wg.Wait()
 }
-
-func TestPluginChaining(t *testing.T) {
-	t.Skip("Plugin chaining test not implemented: requires multi-plugin orchestration.")
-}
