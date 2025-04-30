@@ -64,6 +64,12 @@ pipes:
     private_key: {{ .PrivateKey }}
     known_hosts_data: {{ .KnownHostsKey }}
 - from:
+    - groupname: "testgroup"
+  to:
+    host: host-password:2222
+    username: "user"
+    ignore_hostkey: true
+- from:
     - username: ".*"
       username_regex_match: true
       authorized_keys: 

@@ -1,10 +1,13 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os/user"
 	"regexp"
 	"slices"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/tg123/sshpiper/libplugin"
 )
@@ -85,27 +88,37 @@ func (s *skelpipeToWrapper) KnownHosts(conn libplugin.ConnMetadata) ([]byte, err
 }
 
 func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (libplugin.SkelPipeTo, error) {
-	user := conn.User()
+	username := conn.User()
 
 	targetuser := s.to.Username
 
 	var matched bool
 	if s.from.Username != "" {
-		matched = s.from.Username == user
+		matched = s.from.Username == username
 		if s.from.UsernameRegexMatch {
 			re, err := regexp.Compile(s.from.Username)
 			if err != nil {
 				return nil, err
 			}
 
-			matched = re.MatchString(user)
+			matched = re.MatchString(username)
 
 			if matched {
-				targetuser = re.ReplaceAllString(user, s.to.Username)
+				targetuser = re.ReplaceAllString(username, s.to.Username)
 			}
 		}
 	} else if s.from.Groupname != "" {
-		userGroups, err := getUserGroups(user)
+		// check user is known to the system before grouplookup
+		usr, err := user.Lookup(username)
+		if err != nil {
+			var unknownUser user.UnknownUserError
+			if errors.As(err, &unknownUser) {
+				return nil, nil
+			}
+			log.Errorf("[ERROR] Matchconn(): Failure looking up user %q: %T - %v", username, err, err)
+			return nil, err
+		}
+		userGroups, err := getUserGroups(usr)
 		if err != nil {
 			return nil, err
 		}
@@ -114,7 +127,7 @@ func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (libplugin.
 	}
 
 	if targetuser == "" {
-		targetuser = user
+		targetuser = username
 	}
 
 	if matched {
@@ -241,14 +254,10 @@ func (p *plugin) listPipe(_ libplugin.ConnMetadata) ([]libplugin.SkelPipe, error
 	return pipes, nil
 }
 
-func getUserGroups(userName string) ([]string, error) {
-	usr, err := user.Lookup(userName)
-	if err != nil {
-		return nil, err
-	}
-
+func getUserGroups(usr *user.User) ([]string, error) {
 	groupIds, err := usr.GroupIds()
 	if err != nil {
+		log.Errorf("[ERROR] getUserGroups(): Failure retrieving group IDs for %q: %T - %v", usr.Username, err, err)
 		return nil, err
 	}
 
@@ -256,6 +265,7 @@ func getUserGroups(userName string) ([]string, error) {
 	for _, groupId := range groupIds {
 		grp, err := user.LookupGroupId(groupId)
 		if err != nil {
+			log.Errorf("[ERROR] getUserGroups(): Failure retrieving group name for %q: %T - %v", usr.Username, err, err)
 			return nil, err
 		}
 		groups = append(groups, grp.Name)
