@@ -70,9 +70,33 @@ pipes:
     username: "user"
     ignore_hostkey: true
 - from:
+    - username: "cert"
+      trusted_user_ca_keys: {{ .TrustedUserCAKeys }}
+  to:
+    host: host-publickey:2222
+    username: "user"
+    ignore_hostkey: true
+    private_key: {{ .PrivateKey }}
+- from:
+    - groupname: "testgroup"
+      authorized_keys: {{ .AuthorizedKeys_Simple }}
+  to:
+    host: host-publickey:2222
+    username: "user"
+    private_key: {{ .PrivateKey }}
+    known_hosts_data: {{ .KnownHostsKey }}
+- from:
+    - groupname: "testgroup"
+  to:
+    host: host-password:2222
+    username: "user"
+    ignore_hostkey: true
+- from:
     - username: ".*"
       username_regex_match: true
       authorized_keys: 
+        - {{ .AuthorizedKeys_Simple }}
+        - {{ .AuthorizedKeys_Catchall }}
         - {{ .AuthorizedKeys_Simple }}
         - {{ .AuthorizedKeys_Catchall }}
   to:
@@ -594,3 +618,35 @@ func TestYaml(t *testing.T) {
 
 	})
 }
+
+t.Run("group_routing_password", func(t *testing.T) {
+	randtext := uuid.New().String()
+	targetfie := uuid.New().String()
+
+	c, stdin, stdout, err := runCmd(
+		"ssh",
+		"-v",
+		"-o",
+		"StrictHostKeyChecking=no",
+		"-o",
+		"UserKnownHostsFile=/dev/null",
+		"-p",
+		piperport,
+		"-l",
+		"testuser",
+		"127.0.0.1",
+		fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
+	)
+
+	if err != nil {
+		t.Errorf("failed to ssh to piper, %v", err)
+	}
+
+	defer killCmd(c)
+
+	enterPassword(stdin, stdout, "pass")
+
+	time.Sleep(time.Second) // wait for file flush
+
+	checkSharedFileContent(t, targetfie, randtext)
+})
