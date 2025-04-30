@@ -159,7 +159,8 @@ spec:
   from:
   - username: ".*" # catch all    
     username_regex_match: true
-    authorized_keys_data: "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSU5SR1RIMzI1ckRVcDEydHBsd3VrSG1SOHl0YkM5VFBaODg2Z0NzdHluUDEK"
+    authorized_keys_data:
+      - "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSU5SR1RIMzI1ckRVcDEydHBsd3VrSG1SOHl0YkM5VFBaODg2Z0NzdHluUDEK"
   to:
     host: host-publickey:2222
     username: "user"

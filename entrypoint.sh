@@ -1,7 +1,11 @@
-#!/bin/bash
-set -eo pipefail
+#!/bin/sh
+set -e
 
-PLUGIN=remotecall
-export SSHPIPERD_SERVER_KEY_GENERATE_MODE=${SSHPIPERD_SERVER_KEY_GENERATE_MODE:-notexist}
+PLUGIN=${PLUGIN:-fixed}
+export SSHPIPERD_SERVER_KEY_GENERATE_MODE="${SSHPIPERD_SERVER_KEY_GENERATE_MODE:-notexist}"
 
-/sshpiperd/sshpiperd "${@:-/sshpiperd/plugins/$PLUGIN}"
+if [ "$PLUGIN" = "fixed" ]; then
+  exec /sshpiperd/sshpiperd /sshpiperd/plugins/fixed --target=127.0.0.1:22
+else
+  exec /sshpiperd/sshpiperd "${@:-/sshpiperd/plugins/$PLUGIN}"
+fi

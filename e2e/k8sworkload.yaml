@@ -149,7 +149,8 @@ spec:
   from:
   - username: "custom_field" # catch all    
     username_regex_match: true
-    authorized_keys_data: "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSU5SR1RIMzI1ckRVcDEydHBsd3VrSG1SOHl0YkM5VFBaODg2Z0NzdHluUDEK"
+    authorized_keys_data:
+      - "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSU5SR1RIMzI1ckRVcDEydHBsd3VrSG1SOHl0YkM5VFBaODg2Z0NzdHluUDEK"
   to:
     host: host-publickey:2222
     username: "user"
@@ -176,7 +177,8 @@ spec:
   from:
   - username: "any.*" # catch all    
     username_regex_match: true
-    authorized_keys_data: "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSU5SR1RIMzI1ckRVcDEydHBsd3VrSG1SOHl0YkM5VFBaODg2Z0NzdHluUDEK"
+    authorized_keys_data:
+      - "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSU5SR1RIMzI1ckRVcDEydHBsd3VrSG1SOHl0YkM5VFBaODg2Z0NzdHluUDEK"
   to:
     host: host-publickey:2222
     username: "user"
@@ -192,7 +194,8 @@ metadata:
 spec:
   from:
   - username: "authorizedfile"
-    authorized_keys_file: /files/authorized_keys
+    authorized_keys_file:
+      - /files/authorized_keys
   to:
     host: host-publickey:2222
     username: "user"
@@ -218,7 +221,8 @@ spec:
   from:
   - username: "htpwd"
     # htpasswd -nb htpwd htpassword
-    htpasswd_data: "htpwd:$apr1$FazBEvaq$BZWaLi8Q1efsWNTKcuUgN1"
+    htpasswd_data:
+      - "htpwd:$apr1$FazBEvaq$BZWaLi8Q1efsWNTKcuUgN1"
   to:
     host: host-password:2222
     username: "user"
@@ -233,7 +237,8 @@ metadata:
 spec:
   from:
   - username: "htpwdfile"
-    htpasswd_file: /files/htpasswd
+    htpasswd_file:
+      - /files/htpasswd
   to:
     host: host-password:2222
     username: "user"
@@ -268,7 +273,8 @@ metadata:
 spec:
   from:
   - username: "hostcapublickey"
-    authorized_keys_file: /files/authorized_keys
+    authorized_keys_file:
+      - /files/authorized_keys
   to:
     host: host-capublickey:2222
     username: "ca_user"
@@ -283,7 +289,8 @@ metadata:
 spec:
   from:
   - username: "keytopass"
-    authorized_keys_file: /files/authorized_keys
+    authorized_keys_file:
+      - /files/authorized_keys
   to:
     host: host-password:2222
     username: "user"

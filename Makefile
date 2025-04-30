@@ -21,7 +21,7 @@ BUILD_TAGS ?= full
 IMAGE ?= gru.ocir.io/grq1iurfepyg/sshpiperd
 TAG ?= latest
 
-.PHONY: all vendor fmt vet lint check codegen codegen-k8s gen-main build-main build-plugins build docker-local docker-build-push test clean e2e
+.PHONY: all vendor fmt vet lint check codegen codegen-k8s gen-main build-main build-plugins build docker-local docker-build-push test clean e2e e2e-all kind-up kind-down kind-status kind-load prereqs e2e-all-full kind-local build-e2e-plugins
 
 # Default target: run vendor, check, codegen, build and docker targets
 all: vendor check codegen build docker-local docker-build-push
@@ -111,6 +111,7 @@ docker-build-push: build
 clean:
 	@echo "Cleaning up..."
 	rm -rf $(BIN_DIR)
+	rm -f ./bin/kind
 
 # Cross-compile main binary for amd64 and arm64
 build-main-amd64:
@@ -153,3 +154,63 @@ clean-cross:
 # build-cross: Build main binary and yaml plugin for linux/amd64 and linux/arm64
 # package-tarballs: Create tar.gz packages for each architecture (main binary + yaml plugin)
 # clean-cross: Remove cross-arch build artifacts and tarballs
+
+# Run the full E2E suite using docker-compose (matches CI workflow)
+e2e-all:
+	@echo "Running full E2E suite with docker-compose..."
+	cd e2e && COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker compose up --build --abort-on-container-exit --exit-code-from testrunner
+
+# Kind cluster management for local Kubernetes E2E
+.PHONY: kind-up kind-down kind-status kind-load
+
+# Prerequisites automation for local k8s-proxy E2E
+.PHONY: prereqs
+
+# Install kind if not present and check Docker is running
+prereqs:
+	@if ! command -v kind >/dev/null 2>&1 && [ ! -x ./bin/kind ]; then \
+	  echo "kind not found, installing to ./bin/kind..."; \
+	  mkdir -p ./bin; \
+	  curl -Lo ./bin/kind https://kind.sigs.k8s.io/dl/v0.27.0/kind-linux-amd64; \
+	  chmod +x ./bin/kind; \
+	fi
+	@if ! docker info >/dev/null 2>&1; then \
+	  echo "Docker is not running or not available. Please start Docker."; \
+	  exit 1; \
+	fi
+
+# Use local kind if present, else system kind
+KIND_BIN := $(shell [ -x ./bin/kind ] && echo ./bin/kind || echo kind)
+
+kind-up:
+	PATH=./bin:$$PATH $(KIND_BIN) create cluster -n sshpipertest || true
+
+kind-down:
+	PATH=./bin:$$PATH $(KIND_BIN) delete cluster -n sshpipertest || true
+
+kind-status:
+	PATH=./bin:$$PATH $(KIND_BIN) get clusters
+	PATH=./bin:$$PATH $(KIND_BIN) get nodes -n sshpipertest || true
+
+kind-load:
+	docker build -t sshpiper-test-image .
+	PATH=./bin:$$PATH $(KIND_BIN) load docker-image -n sshpipertest sshpiper-test-image
+
+# e2e-all now depends on kind-up and kind-load for k8s-proxy E2E
+.PHONY: e2e-all-full
+
+e2e-all-full: prereqs kind-up kind-load
+	$(MAKE) e2e-all
+
+# Test the local kind binary
+.PHONY: kind-local
+kind-local:
+	PATH=./bin:$$PATH ./bin/kind version
+
+# Build all E2E test plugins for test runner
+.PHONY: build-e2e-plugins
+build-e2e-plugins:
+	@echo "Building E2E test plugins..."
+	go build -tags "e2e" -o e2e/testplugin/testsetmetaplugin/testsetmetaplugin ./e2e/testplugin/testsetmetaplugin
+	go build -tags "e2e" -o e2e/testplugin/testgetmetaplugin/testgetmetaplugin ./e2e/testplugin/testgetmetaplugin
+	go build -tags "e2e" -o e2e/testplugin/testgrpcplugin/testgrpcplugin ./e2e/testplugin/testgrpcplugin

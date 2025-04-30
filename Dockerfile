@@ -19,6 +19,13 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     go build -tags "$BUILDTAGS" -ldflags "-X main.mainver=$VER" -o /sshpiperd ./cmd/...
 RUN --mount=type=cache,target=/root/.cache/go-build \
     go build -tags "$BUILDTAGS" -o /sshpiperd/plugins ./plugin/...
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    go build -tags "e2e" -o /sshpiperd/plugins/testsetmetaplugin ./e2e/testplugin/testsetmetaplugin
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    go build -tags "e2e" -o /sshpiperd/plugins/testgetmetaplugin ./e2e/testplugin/testgetmetaplugin
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    go build -tags "e2e" -o /sshpiperd/plugins/testgrpcplugin ./e2e/testplugin/testgrpcplugin
+
 COPY entrypoint.sh /sshpiperd
 
 FROM builder AS testrunner
