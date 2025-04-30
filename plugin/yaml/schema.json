@@ -105,7 +105,7 @@
                         }
                     ]
                 },
-                "vault_ca_path": {
+                "vault_kv_path": {
                     "type": "string"
                 }
             },
@@ -161,10 +161,7 @@
                         }
                     ]
                 },
-                "vault_private_key_path": {
-                    "type": "string"
-                },
-                "vault_password_path": {
+                "vault_kv_path": {
                     "type": "string"
                 }
             },

@@ -8,6 +8,8 @@ import (
 	"io"
 	"net"
 	"os"
+	sync "sync"
+	"time"
 
 	vault "github.com/hashicorp/vault/api"
 	"github.com/tg123/remotesigner/grpcsigner"
@@ -490,9 +492,9 @@ func NewVaultClient() (*vault.Client, error) {
 	return client, nil
 }
 
-// GetSecret retrieves a secret from the given path in Vault.
+// getSecret retrieves a secret from the given path in Vault.
 // The returned map contains the secret data.
-func GetSecret(path string) (map[string]interface{}, error) {
+func getSecret(path string) (map[string]interface{}, error) {
 	client, err := NewVaultClient()
 	if err != nil {
 		return nil, err
@@ -506,4 +508,45 @@ func GetSecret(path string) (map[string]interface{}, error) {
 		return nil, errors.New("no data found at Vault path: " + path)
 	}
 	return secret.Data, nil
+}
+
+// Global cache for Vault secrets
+var (
+	vaultCache      = make(map[string]vaultCacheEntry)
+	vaultCacheMutex sync.RWMutex
+	// VAULT_CACHE_DURATION as a duration string (e.g. "5m"); default to 5 minutes if not set.
+	vaultCacheDuration = func() time.Duration {
+		if dStr := os.Getenv("VAULT_CACHE_DURATION"); dStr != "" {
+			d, err := time.ParseDuration(dStr)
+			if err == nil {
+				return d
+			}
+		}
+		return 5 * time.Minute
+	}()
+)
+
+type vaultCacheEntry struct {
+	secretData map[string]interface{}
+	expiry     time.Time
+}
+
+func GetSecret(path string) (map[string]interface{}, error) {
+	vaultCacheMutex.RLock()
+	entry, found := vaultCache[path]
+	vaultCacheMutex.RUnlock()
+	if found && time.Now().Before(entry.expiry) {
+		return entry.secretData, nil
+	}
+	secretData, err := getSecret(path)
+	if err != nil {
+		return nil, err
+	}
+	vaultCacheMutex.Lock()
+	vaultCache[path] = vaultCacheEntry{
+		secretData: secretData,
+		expiry:     time.Now().Add(vaultCacheDuration),
+	}
+	vaultCacheMutex.Unlock()
+	return secretData, nil
 }

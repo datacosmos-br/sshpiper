@@ -19,7 +19,7 @@ type yamlPipeFrom struct {
 	AuthorizedKeysData    listOrString `yaml:"authorized_keys_data,omitempty"`
 	TrustedUserCAKeys     listOrString `yaml:"trusted_user_ca_keys,omitempty"`
 	TrustedUserCAKeysData listOrString `yaml:"trusted_user_ca_keys_data,omitempty"`
-	VaultCAPath           string       `yaml:"vault_ca_patch,omitempty"`
+	VaultKVPath           string       `yaml:"vault_kv_patch,omitempty"`
 }
 
 func (f yamlPipeFrom) SupportPublicKey() bool {
@@ -27,16 +27,15 @@ func (f yamlPipeFrom) SupportPublicKey() bool {
 }
 
 type yamlPipeTo struct {
-	Username            string       `yaml:"username,omitempty"`
-	Host                string       `yaml:"host"`
-	Password            string       `yaml:"password,omitempty"`
-	PrivateKey          string       `yaml:"private_key,omitempty"`
-	PrivateKeyData      string       `yaml:"private_key_data,omitempty"`
-	KnownHosts          listOrString `yaml:"known_hosts,omitempty"`
-	KnownHostsData      listOrString `yaml:"known_hosts_data,omitempty"`
-	IgnoreHostkey       bool         `yaml:"ignore_hostkey,omitempty"`
-	VaultPrivateKeyPath string       `yaml:"known_hosts,omitempty"`
-	VaultPasswordPath   string       `yaml:"known_hosts,omitempty"`
+	Username       string       `yaml:"username,omitempty"`
+	Host           string       `yaml:"host"`
+	Password       string       `yaml:"password,omitempty"`
+	PrivateKey     string       `yaml:"private_key,omitempty"`
+	PrivateKeyData string       `yaml:"private_key_data,omitempty"`
+	KnownHosts     listOrString `yaml:"known_hosts,omitempty"`
+	KnownHostsData listOrString `yaml:"known_hosts_data,omitempty"`
+	IgnoreHostkey  bool         `yaml:"ignore_hostkey,omitempty"`
+	VaultKVPath    string       `yaml:"vault_kv_patch,omitempty"`
 }
 
 type listOrString struct {

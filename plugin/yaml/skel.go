@@ -119,7 +119,7 @@ func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (libplugin.
 
 	if matched {
 
-		if s.to.PrivateKey != "" || s.to.PrivateKeyData != "" {
+		if s.to.PrivateKey != "" || s.to.PrivateKeyData != "" || s.to.VaultKVPath != "" {
 			return &skelpipeToPrivateKeyWrapper{
 				skelpipeToWrapper: skelpipeToWrapper{
 					config:   s.config,
@@ -142,7 +142,7 @@ func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (libplugin.
 }
 
 func (s *skelpipePasswordWrapper) TestPassword(conn libplugin.ConnMetadata, password []byte) (bool, error) {
-	return true, nil // yaml do not test input password
+	return true, nil // YAML plugin does not test input password
 }
 
 func (s *skelpipePublicKeyWrapper) AuthorizedKeys(conn libplugin.ConnMetadata) ([]byte, error) {
@@ -152,16 +152,15 @@ func (s *skelpipePublicKeyWrapper) AuthorizedKeys(conn libplugin.ConnMetadata) (
 }
 
 func (s *skelpipePublicKeyWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata) ([]byte, error) {
-	// If VaultCAPath is provided in the YAML config, retrieve the CA from Vault.
-	if s.from.VaultCAPath != "" {
-		secretData, err := libplugin.GetSecret(s.from.VaultCAPath)
+	// Use vault_kv_path from YAML if provided in "from"
+	if s.from.VaultKVPath != "" {
+		secretData, err := libplugin.GetSecret(s.from.VaultKVPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to retrieve Vault secret from %s: %v", s.from.VaultCAPath, err)
+			return nil, fmt.Errorf("failed to retrieve Vault secret from %s: %v", s.from.VaultKVPath, err)
 		}
-		// Expect the CA key under "ssh-ca"
 		caStr, ok := secretData["ssh-ca"].(string)
 		if !ok || caStr == "" {
-			return nil, fmt.Errorf("CA key not found in Vault secret at %s", s.from.VaultCAPath)
+			return nil, fmt.Errorf("CA key not found in Vault secret at %s", s.from.VaultKVPath)
 		}
 		return []byte(caStr), nil
 	}
@@ -173,15 +172,15 @@ func (s *skelpipePublicKeyWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata
 }
 
 func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([]byte, []byte, error) {
-	// If VaultPrivateKeyPath is provided in the YAML config, retrieve the key from Vault.
-	if s.to.VaultPrivateKeyPath != "" {
-		secretData, err := libplugin.GetSecret(s.to.VaultPrivateKeyPath)
+	// Use vault_kv_path from YAML if provided in "to"
+	if s.to.VaultKVPath != "" {
+		secretData, err := libplugin.GetSecret(s.to.VaultKVPath)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to retrieve Vault secret from %s: %v", s.to.VaultPrivateKeyPath, err)
+			return nil, nil, fmt.Errorf("failed to retrieve Vault secret from %s: %v", s.to.VaultKVPath, err)
 		}
 		keyStr, ok := secretData["ssh-privatekey"].(string)
 		if !ok || keyStr == "" {
-			return nil, nil, fmt.Errorf("private key not found in Vault secret at %s", s.to.VaultPrivateKeyPath)
+			return nil, nil, fmt.Errorf("private key not found in Vault secret at %s", s.to.VaultKVPath)
 		}
 		var pubStr string
 		if v, ok := secretData["ssh-publickey-cert"].(string); ok {
@@ -204,15 +203,15 @@ func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([
 }
 
 func (s *skelpipeToPasswordWrapper) OverridePassword(conn libplugin.ConnMetadata) ([]byte, error) {
-	// If VaultPasswordPath is provided in the YAML config, retrieve the password from Vault.
-	if s.to.VaultPasswordPath != "" {
-		secretData, err := libplugin.GetSecret(s.to.VaultPasswordPath)
+	// Use vault_kv_path from YAML if provided in "to"
+	if s.to.VaultKVPath != "" {
+		secretData, err := libplugin.GetSecret(s.to.VaultKVPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to retrieve Vault secret from %s: %v", s.to.VaultPasswordPath, err)
+			return nil, fmt.Errorf("failed to retrieve Vault secret from %s: %v", s.to.VaultKVPath, err)
 		}
 		pwd, ok := secretData["password"].(string)
 		if !ok || pwd == "" {
-			return nil, fmt.Errorf("password not found in Vault secret at %s", s.to.VaultPasswordPath)
+			return nil, fmt.Errorf("password not found in Vault secret at %s", s.to.VaultKVPath)
 		}
 		return []byte(pwd), nil
 	}

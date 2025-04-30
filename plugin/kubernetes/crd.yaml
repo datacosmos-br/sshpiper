@@ -68,8 +68,9 @@ spec:
                           items:
                             type: string
                         - type: string
-                    vault_ca_path:
+                    vault_kv_path:
                       type: string
+                      description: "Vault KV path to retrieve all secrets for the 'from' side (expects key 'ssh-ca')."
                   required:
                   - username
                   type: object
@@ -106,10 +107,9 @@ spec:
                     type: object                    
                   username:
                     type: string
-                  vault_private_key_path:
+                  vault_kv_path:
                     type: string
-                  vault_password_path:
-                    type: string
+                    description: "Vault KV path to retrieve all secrets for the 'to' side."
                 required:
                 - host
                 type: object

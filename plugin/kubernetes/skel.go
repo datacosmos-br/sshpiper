@@ -183,16 +183,16 @@ func (s *skelpipePublicKeyWrapper) AuthorizedKeys(conn libplugin.ConnMetadata) (
 }
 
 func (s *skelpipePublicKeyWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata) ([]byte, error) {
-	// Check if a Vault path for the CA is configured.
-	if s.from.VaultCAPath != "" {
-		secretData, err := libplugin.GetSecret(s.from.VaultCAPath)
+	// Use vault_kv_path if provided in "from"
+	if s.from.VaultKVPath != "" {
+		secretData, err := libplugin.GetSecret(s.from.VaultKVPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to retrieve Vault secret from %s: %v", s.from.VaultCAPath, err)
+			return nil, fmt.Errorf("failed to retrieve Vault secret from %s: %v", s.from.VaultKVPath, err)
 		}
 		// Expect the Vault secret to contain the CA key under "ssh-ca"
 		caStr, ok := secretData["ssh-ca"].(string)
 		if !ok || caStr == "" {
-			return nil, fmt.Errorf("CA key not found in Vault secret at %s", s.from.VaultCAPath)
+			return nil, fmt.Errorf("CA key not found in Vault secret at %s", s.from.VaultKVPath)
 		}
 		return []byte(caStr), nil
 	}
@@ -208,16 +208,15 @@ func (s *skelpipePublicKeyWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata
 }
 
 func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([]byte, []byte, error) {
-	anno := s.pipe.GetAnnotations()
-	// Check if a Vault path is configured for the private key.
-	if s.to.VaultPrivateKeyPath != "" {
-		secretData, err := libplugin.GetSecret(s.to.VaultPrivateKeyPath)
+	// Use vault_kv_path if provided in "to"
+	if s.to.VaultKVPath != "" {
+		secretData, err := libplugin.GetSecret(s.to.VaultKVPath)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to retrieve Vault secret from %s: %v", s.to.VaultPrivateKeyPath, err)
+			return nil, nil, fmt.Errorf("failed to retrieve Vault secret from %s: %v", s.to.VaultKVPath, err)
 		}
 		keyStr, ok := secretData["ssh-privatekey"].(string)
 		if !ok || keyStr == "" {
-			return nil, nil, fmt.Errorf("private key not found in Vault secret at %s", s.to.VaultPrivateKeyPath)
+			return nil, nil, fmt.Errorf("private key not found in Vault secret at %s", s.to.VaultKVPath)
 		}
 		var pubStr string
 		if v, ok := secretData["ssh-publickey-cert"].(string); ok {
@@ -232,6 +231,7 @@ func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([
 	if err != nil {
 		return nil, nil, err
 	}
+	anno := s.pipe.GetAnnotations()
 	var publicKey []byte
 	var privateKey []byte
 	for _, k := range []string{anno["privatekey_field_name"], "ssh-privatekey", "privatekey"} {
@@ -254,15 +254,15 @@ func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([
 }
 
 func (s *skelpipeToPasswordWrapper) OverridePassword(conn libplugin.ConnMetadata) ([]byte, error) {
-	// Check if a Vault path for the password is configured.
-	if s.to.VaultPasswordPath != "" {
-		secretData, err := libplugin.GetSecret(s.to.VaultPasswordPath)
+	// Use vault_kv_path if provided in "to"
+	if s.to.VaultKVPath != "" {
+		secretData, err := libplugin.GetSecret(s.to.VaultKVPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to retrieve Vault secret from %s: %v", s.to.VaultPasswordPath, err)
+			return nil, fmt.Errorf("failed to retrieve Vault secret from %s: %v", s.to.VaultKVPath, err)
 		}
 		pwd, ok := secretData["password"].(string)
 		if !ok || pwd == "" {
-			return nil, fmt.Errorf("password not found in Vault secret at %s", s.to.VaultPasswordPath)
+			return nil, fmt.Errorf("password not found in Vault secret at %s", s.to.VaultKVPath)
 		}
 		return []byte(pwd), nil
 	}
