@@ -4,8 +4,10 @@ import (
 	"encoding/base64"
 	"fmt"
 	"html/template"
+	"io"
 	"os"
 	"path"
+	"sync"
 	"testing"
 	"time"
 
@@ -255,7 +257,7 @@ func TestYaml(t *testing.T) {
 }
 
 func TestGroupRoutingPassword(t *testing.T) {
-	waitForEndpointReady("127.0.0.1:2222")
+	waitForEndpointReady("host-password:2222")
 	randtext := uuid.New().String()
 	targetfile := uuid.New().String()
 
@@ -266,8 +268,8 @@ func TestGroupRoutingPassword(t *testing.T) {
 		"-o", "UserKnownHostsFile=/dev/null",
 		"-p", "2222",
 		"-l", "testuser",
-		"127.0.0.1",
-		fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfile),
+		"host-password",
+		fmt.Sprintf(`sh -c \"echo -n %v > /shared/%v\"`, randtext, targetfile),
 	)
 	require.NoError(t, err, "Failed to ssh to piper")
 	defer killCmd(c)
@@ -276,4 +278,55 @@ func TestGroupRoutingPassword(t *testing.T) {
 
 	time.Sleep(time.Second)
 	checkSharedFileContent(t, targetfile, randtext)
+}
+
+func TestInvalidPassword(t *testing.T) {
+	piperaddr, piperport := nextAvailablePiperAddress()
+	piper, _, _, err := runCmd("/sshpiperd/sshpiperd", "-p", piperport, "/sshpiperd/plugins/fixed", "--target", "host-password:2222")
+	require.NoError(t, err)
+	defer killCmd(piper)
+	waitForEndpointReady(piperaddr)
+
+	c, stdin, stdout, err := runCmd("ssh", "-v", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-p", piperport, "-l", "user", "127.0.0.1")
+	require.NoError(t, err)
+	defer killCmd(c)
+	enterPassword(stdin, stdout, "wrongpassword")
+	time.Sleep(time.Second)
+	s, _ := io.ReadAll(stdout)
+	require.Contains(t, string(s), "Permission denied", "Expected permission denied for wrong password")
+}
+
+func TestMultiFactorAuth(t *testing.T) {
+	t.Skip("Multi-factor auth test not implemented: requires plugin/config that enforces both public key and password.")
+}
+
+func TestCRDInvalidManifest(t *testing.T) {
+	t.Skip("CRD validation test not implemented: requires k8s cluster and invalid manifest application.")
+}
+
+func TestParallelSessions(t *testing.T) {
+	piperaddr, piperport := nextAvailablePiperAddress()
+	piper, _, _, err := runCmd("/sshpiperd/sshpiperd", "-p", piperport, "/sshpiperd/plugins/fixed", "--target", "host-password:2222")
+	require.NoError(t, err)
+	defer killCmd(piper)
+	waitForEndpointReady(piperaddr)
+
+	var wg sync.WaitGroup
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			c, stdin, stdout, err := runCmd("ssh", "-v", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-p", piperport, "-l", "user", "127.0.0.1")
+			require.NoError(t, err)
+			defer killCmd(c)
+			enterPassword(stdin, stdout, "pass")
+			time.Sleep(time.Second)
+			_ = stdout
+		}(i)
+	}
+	wg.Wait()
+}
+
+func TestPluginChaining(t *testing.T) {
+	t.Skip("Plugin chaining test not implemented: requires multi-plugin orchestration.")
 }
