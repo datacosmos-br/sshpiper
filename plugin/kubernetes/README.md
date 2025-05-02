@@ -4,15 +4,6 @@ The kubernetes plugin for sshpiperd provides native kubernetes CRD integretion a
 
 this plugin is inpsired by the [first version kubernetes plugin](https://github.com/pockost/sshpipe-k8s-lib/) for v0 sshpier by [pockost](https://github.com/pockost)
 
-## CA-based Client Authentication
-
-In addition to the standard public key and password authentication, the plugin now supports client-side Certificate Authority (CA) authentication.  
-You can specify CA keys in your Pipe definition by providing:
-- `trusted_user_ca_keys_file`: a file path to the CA key.
-- `trusted_user_ca_keys_data`: inline (base64 or raw) CA key data.
-
-If both are set, the CA keys will be merged and used to verify client certificates.
-
 ## Usage
 
 Start plugin with flag `--all-namespaces` or environment variable `SSHPIPERD_KUBERNETES_ALL_NAMESPACES=true` for cluster-wide usage, or it will listen to the namespace where it is in by default.
@@ -23,8 +14,7 @@ Start plugin with flag `--kubeconfig` or environment variable `SSHPIPERD_KUBERNE
 
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/sshpiper)](https://artifacthub.io/packages/helm/sshpiper/sshpiper)
 
-
-```
+```bash
 helm repo add sshpiper https://tg123.github.io/sshpiper-chart/
 
 helm install my-sshpiper sshpiper/sshpiper --version 0.1.1
@@ -34,7 +24,7 @@ helm install my-sshpiper sshpiper/sshpiper --version 0.1.1
 
 #### Apply CRD definition
 
-```
+```bash
 kubectl apply -f https://raw.githubusercontent.com/tg123/sshpiper/master/plugin/kubernetes/crd.yaml
 ```
 
@@ -138,12 +128,11 @@ metadata:
   name: sshpiper-account
 ```
 
-### Create Pipes 
+### Create Pipes
 
 #### Create Password Pipe
 
-
-```
+```yaml
 apiVersion: sshpiper.com/v1beta1
 kind: Pipe
 metadata:
@@ -158,7 +147,6 @@ spec:
 ```
 
 `ssh password_simple@piper_ip` will pipe to `user@host-password`
-
 
 #### Create Public Key Pipe
 
@@ -191,3 +179,4 @@ spec:
       name: host-publickey-key
     ignore_hostkey: true
 ```
+

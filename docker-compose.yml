@@ -1,0 +1,25 @@
+services:
+  host-publickey:
+    image: lscr.io/linuxserver/openssh-server:9.9_p1-r2-ls190
+    environment:
+      - USER_NAME=user
+      - LOG_STDOUT=true
+      - PUID=1000
+      - PGID=1000
+      - PASSWORD_ACCESS=false
+      - PUBLIC_KEY_AUTH=true
+    labels:
+      - sshpiper.container_username=user
+      - sshpiper.port=2222
+      - sshpiper.authorized_keys=c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSU5SR1RIMzI1ckRVcDEydHBsd3VrSG1SOHl0YkM5VFBaODg2Z0NzdHluUDEgdGVzdEB0ZXN0Cg==
+      - sshpiper.private_key=LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KYjNCbGJuTnphQzFyWlhrdGRqRUFBQUFBQkc1dmJtVUFBQUFFYm05dVpRQUFBQUFBQUFBQkFBQUFNd0FBQUF0emMyZ3RaVwpReU5UVXhPUUFBQUNEVVJreDk5dWF3MUtkZHJhWmNMcEI1a2ZNcld3dlV6MmZQT29BckxjcHo5UUFBQUpDK2owK1N2bzlQCmtnQUFBQXR6YzJndFpXUXlOVFV4T1FBQUFDRFVSa3g5OXVhdzFLZGRyYVpjTHBCNWtmTXJXd3ZVejJmUE9vQXJMY3B6OVEKQUFBRURjUWdkaDJ6MnIvNmJscTB6aUoxbDZzNklBWDhDKzlRSGZBSDkzMWNITk85UkdUSDMyNXJEVXAxMnRwbHd1a0htUgo4eXRiQzlUUFo4ODZnQ3N0eW5QMUFBQUFEV0p2YkdsaGJrQjFZblZ1ZEhVPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K
+    volumes:
+      - shared:/shared:rw
+      - publickey_authorized_keys:/config/.ssh/:rw
+      - ./sshdconfig/no_penalties.conf:/etc/ssh/sshd_config.d/no_penalties.conf:ro
+      - ./sshdconfig/sshd_config:/etc/ssh/sshd_config:ro
+      - ./sshdconfig/banner.conf:/etc/ssh/sshd_config.d/banner.conf:ro
+      - ./sshdconfig/banner:/tmp/banner:ro
+    networks:
+      - default
+      - netdistract 

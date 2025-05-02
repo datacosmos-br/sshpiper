@@ -1,3 +1,5 @@
+//go:build full || e2e
+
 package main
 
 import (
@@ -9,6 +11,8 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/tg123/sshpiper/libplugin"
 )
 
 type pipe struct {
@@ -21,6 +25,31 @@ type pipe struct {
 
 type plugin struct {
 	dockerCli *client.Client
+}
+
+type skelpipeWrapper struct {
+	plugin *plugin
+	pipe   *pipe
+}
+
+type skelpipeFromWrapper struct {
+	skelpipeWrapper
+}
+
+type skelpipeFromPasswordWrapper struct {
+	skelpipeFromWrapper
+}
+
+func (s *skelpipeFromPasswordWrapper) MatchConn(conn libplugin.ConnMetadata) (libplugin.SkelPipeTo, error) {
+	return nil, nil // stub for password wrapper
+}
+
+type skelpipeFromPublicKeyWrapper struct {
+	skelpipeFromWrapper
+}
+
+func (s *skelpipeFromPublicKeyWrapper) MatchConn(conn libplugin.ConnMetadata) (libplugin.SkelPipeTo, error) {
+	return nil, nil // stub for public key wrapper
 }
 
 func newDockerPlugin() (*plugin, error) {
@@ -42,6 +71,11 @@ func (p *plugin) list() ([]pipe, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	log.Infof("Discovered %d containers", len(containers))
+	for _, c := range containers {
+		log.Infof("Container: %s, Names: %v, Labels: %+v", c.ID, c.Names, c.Labels)
 	}
 
 	var pipes []pipe
@@ -108,4 +142,35 @@ func (p *plugin) list() ([]pipe, error) {
 	}
 
 	return pipes, nil
+}
+
+func (p *plugin) listPipe(metadata libplugin.ConnMetadata) ([]libplugin.SkelPipe, error) {
+	pipes, err := p.list()
+	if err != nil {
+		return nil, err
+	}
+	var result []libplugin.SkelPipe
+	for i := range pipes {
+		result = append(result, &skelpipeWrapper{
+			plugin: p,
+			pipe:   &pipes[i],
+		})
+	}
+	return result, nil
+}
+
+func (s *skelpipeWrapper) From() []libplugin.SkelPipeFrom {
+	w := skelpipeFromWrapper{
+		skelpipeWrapper: *s,
+	}
+
+	if s.pipe != nil && (s.pipe.PrivateKey != "" || s.pipe.AuthorizedKeys != "") {
+		return []libplugin.SkelPipeFrom{&skelpipeFromPublicKeyWrapper{
+			skelpipeFromWrapper: w,
+		}}
+	} else {
+		return []libplugin.SkelPipeFrom{&skelpipeFromPasswordWrapper{
+			skelpipeFromWrapper: w,
+		}}
+	}
 }

@@ -96,9 +96,6 @@ services:
       target: testrunner
       args:
         - BUILDTAGS=e2e
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
     volumes:
       - ..:/src
       - shared:/shared

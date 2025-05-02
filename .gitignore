@@ -15,6 +15,8 @@ bin/
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+*.log
+*.txt
 
 # Dependency directories (remove the comment below to include it)
 vendor/
@@ -24,3 +26,7 @@ go.work
 
 dist/
 cmd/sshpiperd/snap/launcher/configentry.txt
+
+e2e/testplugin/*/testgetmetaplugin
+e2e/testplugin/*/testgrpcplugin
+e2e/testplugin/*/testsetmetaplugin

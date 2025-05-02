@@ -77,10 +77,13 @@ build-main:
 build-plugins:
 	@echo "Building plugins with tags $(BUILD_TAGS)..."
 	@mkdir -p $(BIN_DIR)
-	@for dir in $(PLUGIN_NAMES); do \
-		echo "Building plugin $dir with tags $(BUILD_TAGS)..."; \
-		cd $(PLUGIN_DIR)/$dir && go build -tags "$(BUILD_TAGS)" -o ../../$(BIN_DIR)/sshpiperd-$dir; \
-		cd -; \
+	@for plugin in $(PLUGIN_NAMES); do \
+		if [ -d "$(PLUGIN_DIR)/$$plugin" ]; then \
+			echo "Building plugin $$plugin with tags $(BUILD_TAGS)..."; \
+			(cd "$(PLUGIN_DIR)/$$plugin" && go build -tags "$(BUILD_TAGS)" -o "../../$(BIN_DIR)/sshpiperd-$$plugin" .) || exit 1; \
+		else \
+			echo "Warning: Plugin directory $(PLUGIN_DIR)/$$plugin not found, skipping..."; \
+		fi \
 	done
 
 # Combined build target (main and plugins)
@@ -158,7 +161,19 @@ clean-cross:
 # Run the full E2E suite using docker-compose (matches CI workflow)
 e2e-all:
 	@echo "Running full E2E suite with docker-compose..."
-	cd e2e && COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker compose up --build --abort-on-container-exit --exit-code-from testrunner
+	@cd e2e && \
+	COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 \
+		docker compose up --build \
+			--abort-on-container-exit --exit-code-from testrunner 2>&1 | \
+			tee ../e2e-output.log | \
+			grep --line-buffered -E 'PASS|FAIL|panic:|---' || true ; \
+	EXIT=$$? ; \
+	echo "==== testrunner logs (last 100 lines) ====" ; \
+	docker compose logs --tail=100 testrunner || true ; \
+	echo "==== TEST SUMMARY ====" ; \
+	grep -E 'PASS|FAIL|panic:|---' ../e2e-output.log || echo 'No test summary lines found.' ; \
+	echo "==== FULL LOG: e2e-output.log ====" ; \
+	exit $$EXIT
 
 # Kind cluster management for local Kubernetes E2E
 .PHONY: kind-up kind-down kind-status kind-load

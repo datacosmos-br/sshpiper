@@ -33,36 +33,21 @@ spec:
                 items:
                   properties:
                     authorized_keys_data:
-                      type: array
-                      items:
-                        type: string
-                    authorized_keys_file:
-                      type: array
-                      items:
-                        type: string
-                    trusted_user_ca_keys_data:
-                      type: array
-                      items:
-                        type: string
-                    trusted_user_ca_keys_file:
-                      type: array
-                      items:
-                        type: string
-                    htpasswd_data:
-                      type: array
-                      items:
-                        type: string
-                    htpasswd_file:
-                      type: array
-                      items:
-                        type: string
-                    vault_kv_path:
                       type: string
-                      description: "Vault KV path to retrieve all secrets for the 'from' side (expects key 'ssh-ca')."
+                    authorized_keys_file:
+                      type: string
                     username:
+                      type: string
+                    htpasswd_data:
+                      type: string
+                    htpasswd_file:
                       type: string
                     username_regex_match:
                       type: boolean
+                    trusted_user_ca_keys_data:
+                      type: string
+                    vault_kv_path:
+                      type: string
                   required:
                   - username
                   type: object
@@ -74,9 +59,7 @@ spec:
                   ignore_hostkey:
                     type: boolean
                   known_hosts_data:
-                    type: array
-                    items:
-                      type: string
+                    type: string
                   private_key_secret:
                     description: LocalObjectReference contains enough information
                       to let you locate the referenced object inside the same namespace.
@@ -120,5 +103,6 @@ spec:
     - jsonPath: .spec.to.host
       name: ToHost
       type: string
+      
     served: true
     storage: true

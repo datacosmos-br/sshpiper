@@ -1,3 +1,5 @@
+//go:build full || e2e
+
 package main
 
 import (
@@ -132,7 +134,7 @@ func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (libplugin.
 
 	if matched {
 
-		if s.to.PrivateKey != "" || s.to.PrivateKeyData != "" || s.to.VaultKVPath != "" {
+		if s.to.PrivateKey != "" || s.to.PrivateKeyData != "" {
 			return &skelpipeToPrivateKeyWrapper{
 				skelpipeToWrapper: skelpipeToWrapper{
 					config:   s.config,
@@ -155,7 +157,7 @@ func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (libplugin.
 }
 
 func (s *skelpipePasswordWrapper) TestPassword(conn libplugin.ConnMetadata, password []byte) (bool, error) {
-	return true, nil // YAML plugin does not test input password
+	return true, nil // yaml do not test input password
 }
 
 func (s *skelpipePublicKeyWrapper) AuthorizedKeys(conn libplugin.ConnMetadata) ([]byte, error) {
@@ -165,7 +167,6 @@ func (s *skelpipePublicKeyWrapper) AuthorizedKeys(conn libplugin.ConnMetadata) (
 }
 
 func (s *skelpipePublicKeyWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata) ([]byte, error) {
-	// Use vault_kv_path from YAML if provided in "from"
 	if s.from.VaultKVPath != "" {
 		secretData, err := libplugin.GetSecret(s.from.VaultKVPath)
 		if err != nil {
@@ -177,8 +178,6 @@ func (s *skelpipePublicKeyWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata
 		}
 		return []byte(caStr), nil
 	}
-
-	// Otherwise, fallback to loading from file or inline data.
 	return s.config.loadFileOrDecodeMany(s.from.TrustedUserCAKeys, s.from.TrustedUserCAKeysData, map[string]string{
 		"DOWNSTREAM_USER": conn.User(),
 	})
@@ -201,8 +200,6 @@ func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([
 		}
 		return []byte(keyStr), []byte(pubStr), nil
 	}
-
-	// Fallback to current method (loading from file or inline base64 data).
 	p, err := s.config.loadFileOrDecode(s.to.PrivateKey, s.to.PrivateKeyData, map[string]string{
 		"DOWNSTREAM_USER": conn.User(),
 		"UPSTREAM_USER":   s.username,
@@ -216,7 +213,6 @@ func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([
 }
 
 func (s *skelpipeToPasswordWrapper) OverridePassword(conn libplugin.ConnMetadata) ([]byte, error) {
-	// Use vault_kv_path from YAML if provided in "to"
 	if s.to.VaultKVPath != "" {
 		secretData, err := libplugin.GetSecret(s.to.VaultKVPath)
 		if err != nil {
@@ -228,8 +224,6 @@ func (s *skelpipeToPasswordWrapper) OverridePassword(conn libplugin.ConnMetadata
 		}
 		return []byte(pwd), nil
 	}
-
-	// Fallback: if no Vault path is provided, try to load from file/inline data via existing mechanism.
 	return nil, nil
 }
 

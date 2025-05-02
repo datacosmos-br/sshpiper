@@ -1,3 +1,5 @@
+//go:build full || e2e
+
 package main
 
 import (
@@ -67,7 +69,7 @@ func (l *listOrString) UnmarshalYAML(value *yaml.Node) error {
 		l.Str = str
 		return nil
 	}
-	return fmt.Errorf("failed to unmarshal OneOfType")
+	return fmt.Errorf("Failed to unmarshal OneOfType")
 }
 
 type yamlPipe struct {

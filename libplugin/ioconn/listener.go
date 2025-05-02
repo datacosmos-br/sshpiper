@@ -18,7 +18,7 @@ func (l *singleConnListener) Accept() (net.Conn, error) {
 
 // Addr implements net.Listener
 func (l *singleConnListener) Addr() net.Addr {
-	return l.LocalAddr()
+	return l.conn.LocalAddr()
 }
 
 // Close implements net.Listener

@@ -64,7 +64,7 @@ func (s *skelpipeWrapper) From() []libplugin.SkelPipeFrom {
 			to:     &s.pipe.Spec.To,
 		}
 
-		if len(f.AuthorizedKeysData) > 0 || len(f.AuthorizedKeysFile) > 0 {
+		if f.AuthorizedKeysData != "" || f.AuthorizedKeysFile != "" {
 			froms = append(froms, &skelpipePublicKeyWrapper{
 				skelpipeFromWrapper: *w,
 			})
@@ -90,14 +90,7 @@ func (s *skelpipeToWrapper) IgnoreHostKey(conn libplugin.ConnMetadata) bool {
 }
 
 func (s *skelpipeToWrapper) KnownHosts(conn libplugin.ConnMetadata) ([]byte, error) {
-	khSources, err := loadStringAndFile(
-		s.to.KnownHostsData,
-		s.to.KnownHostsFile,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return bytes.Join(khSources, []byte("\n")), nil
+	return base64.StdEncoding.DecodeString(s.to.KnownHostsData)
 }
 
 func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (libplugin.SkelPipeTo, error) {
@@ -170,7 +163,7 @@ func (s *skelpipePasswordWrapper) TestPassword(conn libplugin.ConnMetadata, pass
 		}
 	}
 
-	return pwdmatched, nil
+	return pwdmatched, nil // yaml do not test input password
 }
 
 func (s *skelpipePublicKeyWrapper) AuthorizedKeys(conn libplugin.ConnMetadata) ([]byte, error) {
@@ -183,32 +176,20 @@ func (s *skelpipePublicKeyWrapper) AuthorizedKeys(conn libplugin.ConnMetadata) (
 }
 
 func (s *skelpipePublicKeyWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata) ([]byte, error) {
-	// Use vault_kv_path if provided in "from"
 	if s.from.VaultKVPath != "" {
 		secretData, err := libplugin.GetSecret(s.from.VaultKVPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to retrieve Vault secret from %s: %v", s.from.VaultKVPath, err)
 		}
-		// Expect the Vault secret to contain the CA key under "ssh-ca"
 		caStr, ok := secretData["ssh-ca"].(string)
 		if !ok || caStr == "" {
 			return nil, fmt.Errorf("CA key not found in Vault secret at %s", s.from.VaultKVPath)
 		}
 		return []byte(caStr), nil
 	}
-	// Fallback to the original method.
-	caSources, err := loadStringAndFile(
-		s.from.TrustedUserCAKeysData,
-		s.from.TrustedUserCAKeysFile,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return bytes.Join(caSources, []byte("\n")), nil
+	return []byte(s.from.TrustedUserCAKeysData), nil
 }
-
 func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([]byte, []byte, error) {
-	// Use vault_kv_path if provided in "to"
 	if s.to.VaultKVPath != "" {
 		secretData, err := libplugin.GetSecret(s.to.VaultKVPath)
 		if err != nil {
@@ -225,15 +206,16 @@ func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([
 		return []byte(keyStr), []byte(pubStr), nil
 	}
 
-	// Fallback: use the Kubernetes secret method.
 	log.Debugf("mapping to %v private key using secret %v", s.to.Host, s.to.PrivateKeySecret.Name)
 	secret, err := s.plugin.k8sclient.Secrets(s.pipe.Namespace).Get(context.Background(), s.to.PrivateKeySecret.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, nil, err
 	}
+
 	anno := s.pipe.GetAnnotations()
 	var publicKey []byte
 	var privateKey []byte
+
 	for _, k := range []string{anno["privatekey_field_name"], "ssh-privatekey", "privatekey"} {
 		data := secret.Data[k]
 		if data != nil {
@@ -242,6 +224,7 @@ func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([
 			break
 		}
 	}
+
 	for _, k := range []string{anno["publickey_field_name"], "ssh-publickey-cert", "publickey-cert", "ssh-publickey", "publickey"} {
 		data := secret.Data[k]
 		if data != nil {
@@ -250,11 +233,11 @@ func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([
 			break
 		}
 	}
+
 	return privateKey, publicKey, nil
 }
 
 func (s *skelpipeToPasswordWrapper) OverridePassword(conn libplugin.ConnMetadata) ([]byte, error) {
-	// Use vault_kv_path if provided in "to"
 	if s.to.VaultKVPath != "" {
 		secretData, err := libplugin.GetSecret(s.to.VaultKVPath)
 		if err != nil {
@@ -266,7 +249,7 @@ func (s *skelpipeToPasswordWrapper) OverridePassword(conn libplugin.ConnMetadata
 		}
 		return []byte(pwd), nil
 	}
-	// Fallback: use existing Kubernetes secret method.
+
 	if s.to.PasswordSecret.Name != "" {
 		log.Debugf("mapping to %v password using secret %v", s.to.Host, s.to.PasswordSecret.Name)
 		secret, err := s.plugin.k8sclient.Secrets(s.pipe.Namespace).Get(context.Background(), s.to.PasswordSecret.Name, metav1.GetOptions{})
@@ -289,27 +272,25 @@ func (s *skelpipeToPasswordWrapper) OverridePassword(conn libplugin.ConnMetadata
 	return nil, nil
 }
 
-func loadStringAndFile(base64orraw []string, filepath []string) ([][]byte, error) {
-	var all [][]byte
+func loadStringAndFile(base64orraw string, filepath string) ([][]byte, error) {
 
-	for _, dataStr := range base64orraw {
-		// Attempt base64 decode; if that fails, treat it as raw data.
-		if decoded, err := base64.StdEncoding.DecodeString(dataStr); err == nil {
-			all = append(all, decoded)
-		} else {
-			all = append(all, []byte(dataStr))
+	all := make([][]byte, 0, 2)
+
+	if base64orraw != "" {
+		data, err := base64.StdEncoding.DecodeString(base64orraw)
+		if err != nil {
+			data = []byte(base64orraw)
 		}
+
+		all = append(all, data)
 	}
 
-	for _, path := range filepath {
-		// Expand placeholders and environment variables.
-		expanded := os.Expand(path, func(placeholderName string) string {
-			return os.Getenv(placeholderName)
-		})
-		data, err := os.ReadFile(expanded)
+	if filepath != "" {
+		data, err := os.ReadFile(filepath)
 		if err != nil {
 			return nil, err
 		}
+
 		all = append(all, data)
 	}
 

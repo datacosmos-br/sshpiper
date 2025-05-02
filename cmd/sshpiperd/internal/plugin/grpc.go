@@ -290,7 +290,7 @@ func (g *GrpcPlugin) createUpstream(conn ssh.ConnMetadata, challengeCtx ssh.Chal
 
 	c, err := net.Dial("tcp", addr)
 	if err != nil {
-		return nil, fmt.Errorf("error doing tcp dial to addr %q: %w", addr, err)
+		return nil, err
 	}
 
 	config := ssh.ClientConfig{
@@ -346,7 +346,7 @@ func (g *GrpcPlugin) createUpstream(conn ssh.ConnMetadata, challengeCtx ssh.Chal
 
 			caCertificate, ok := caPublicKey.(*ssh.Certificate)
 			if !ok {
-				return nil, fmt.Errorf("failed to convert the caPublicKey to an ssh.Certificate")
+				return nil, fmt.Errorf("Failed to convert the caPublicKey to an ssh.Certificate")
 			}
 
 			private, err = ssh.NewCertSigner(caCertificate, private)
@@ -418,7 +418,6 @@ func (g *GrpcPlugin) PublicKeyCallback(conn ssh.ConnMetadata, key ssh.PublicKey,
 	reply, err := g.client.PublicKeyAuth(context.Background(), &libplugin.PublicKeyAuthRequest{
 		Meta:      meta,
 		PublicKey: key.Marshal(),
-		KeyType:   key.Type(),
 	})
 
 	if err != nil {
@@ -552,9 +551,8 @@ func (g *GrpcPlugin) RecvLogs(writer io.Writer) error {
 			log.Errorf("recv log error: %v", err)
 			return err
 		}
-		if _, err := fmt.Fprintln(writer, line.GetMessage()); err != nil {
-			return fmt.Errorf("failed to write log message: %w", err)
-		}
+
+		fmt.Fprintln(writer, line.GetMessage())
 	}
 }
 

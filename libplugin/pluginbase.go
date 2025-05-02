@@ -307,6 +307,7 @@ func (s *server) PublicKeyAuth(ctx context.Context, req *PublicKeyAuthRequest) (
 	if err != nil {
 		return nil, err
 	}
+
 	return &PublicKeyAuthResponse{
 		Upstream: upstream,
 	}, nil

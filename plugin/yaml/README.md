@@ -118,12 +118,8 @@ Instead of `from.authorized_keys`, if your clients support connecting with provi
 version: "1.0"
 pipes:
 - from:
-    - username: ".*" # catch all    
-      username_regex_match: true
-      authorized_keys: /path/to/catch_all/authorized_keys
-      trusted_user_ca_keys:
-      - /path/to/ca_keys
-      trusted_user_ca_keys_data: "base64_ca_data"
+    - username: "hello"
+      trusted_user_ca_keys: /path/to/ca-key-user_ed25519.pub
   to:
     host: example.com:22
     username: "world"

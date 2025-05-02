@@ -1,11 +1,7 @@
 #!/bin/sh
-set -e
+set -eo pipefail
 
-PLUGIN=${PLUGIN:-fixed}
-export SSHPIPERD_SERVER_KEY_GENERATE_MODE="${SSHPIPERD_SERVER_KEY_GENERATE_MODE:-notexist}"
+PLUGIN=${PLUGIN:-workingdir}
+export SSHPIPERD_SERVER_KEY_GENERATE_MODE=${SSHPIPERD_SERVER_KEY_GENERATE_MODE:-notexist}
 
-if [ "$PLUGIN" = "fixed" ]; then
-  exec /sshpiperd/sshpiperd /sshpiperd/plugins/fixed --target=127.0.0.1:22
-else
-  exec /sshpiperd/sshpiperd "${@:-/sshpiperd/plugins/$PLUGIN}"
-fi
+exec /sshpiperd/sshpiperd "${@:-/sshpiperd/plugins/$PLUGIN}"

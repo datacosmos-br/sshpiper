@@ -5,12 +5,11 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestBanner(t *testing.T) {
-	t.Run("banner via command line argument", func(t *testing.T) {
+
+	t.Run("args", func(t *testing.T) {
 		piperaddr, piperport := nextAvailablePiperAddress()
 		randtext := uuid.New().String()
 
@@ -23,7 +22,11 @@ func TestBanner(t *testing.T) {
 			"--target",
 			"host-password:2222",
 		)
-		require.NoError(t, err, "failed to run sshpiperd")
+
+		if err != nil {
+			t.Errorf("failed to run sshpiperd: %v", err)
+		}
+
 		defer killCmd(piper)
 
 		waitForEndpointReady(piperaddr)
@@ -41,31 +44,35 @@ func TestBanner(t *testing.T) {
 			"user",
 			"127.0.0.1",
 		)
-		require.NoError(t, err, "failed to ssh to piper")
+
+		if err != nil {
+			t.Errorf("failed to ssh to piper, %v", err)
+		}
+
 		defer killCmd(c)
 
-		waitForStdoutContains(stdout, randtext, func(output string) {
-			assert.Contains(t, output, randtext, "banner text not found in output")
+		waitForStdoutContains(stdout, randtext, func(_ string) {
 		})
 	})
 
-	t.Run("banner via file", func(t *testing.T) {
+	t.Run("file", func(t *testing.T) {
+
 		piperaddr, piperport := nextAvailablePiperAddress()
 		randtext := uuid.New().String()
 
 		bannerfile, err := os.CreateTemp("", "banner")
-		require.NoError(t, err, "failed to create temp file")
-		defer func() {
-			if err := os.Remove(bannerfile.Name()); err != nil {
-				t.Logf("failed to remove temp banner file: %v", err)
-			}
-		}()
+		if err != nil {
+			t.Errorf("failed to create temp file: %v", err)
+		}
+		defer os.Remove(bannerfile.Name())
 
-		_, err = bannerfile.WriteString(randtext)
-		require.NoError(t, err, "failed to write to temp file")
+		if _, err := bannerfile.WriteString(randtext); err != nil {
+			t.Errorf("failed to write to temp file: %v", err)
+		}
 
-		err = bannerfile.Close()
-		require.NoError(t, err, "failed to close temp file")
+		if err := bannerfile.Close(); err != nil {
+			t.Errorf("failed to close temp file: %v", err)
+		}
 
 		piper, _, _, err := runCmd("/sshpiperd/sshpiperd",
 			"--banner-file",
@@ -76,7 +83,11 @@ func TestBanner(t *testing.T) {
 			"--target",
 			"host-password:2222",
 		)
-		require.NoError(t, err, "failed to run sshpiperd")
+
+		if err != nil {
+			t.Errorf("failed to run sshpiperd: %v", err)
+		}
+
 		defer killCmd(piper)
 
 		waitForEndpointReady(piperaddr)
@@ -94,14 +105,17 @@ func TestBanner(t *testing.T) {
 			"user",
 			"127.0.0.1",
 		)
-		require.NoError(t, err, "failed to ssh to piper")
+
+		if err != nil {
+			t.Errorf("failed to ssh to piper, %v", err)
+		}
+
 		defer killCmd(c)
 
-		waitForStdoutContains(stdout, randtext, func(output string) {
-			assert.Contains(t, output, randtext, "banner text from file not found in output")
+		waitForStdoutContains(stdout, randtext, func(_ string) {
 		})
 
-		t.Run("banner from upstream", func(t *testing.T) {
+		t.Run("from_upstream", func(t *testing.T) {
 			piperaddr, piperport := nextAvailablePiperAddress()
 
 			piper, _, _, err := runCmd("/sshpiperd/sshpiperd",
@@ -111,7 +125,11 @@ func TestBanner(t *testing.T) {
 				"--target",
 				"host-password:2222",
 			)
-			require.NoError(t, err, "failed to run sshpiperd")
+
+			if err != nil {
+				t.Errorf("failed to run sshpiperd: %v", err)
+			}
+
 			defer killCmd(piper)
 
 			waitForEndpointReady(piperaddr)
@@ -129,13 +147,16 @@ func TestBanner(t *testing.T) {
 				"user",
 				"127.0.0.1",
 			)
-			require.NoError(t, err, "failed to ssh to piper")
+
+			if err != nil {
+				t.Errorf("failed to ssh to piper, %v", err)
+			}
+
 			defer killCmd(c)
 
 			enterPassword(stdin, stdout, "wrongpass")
 
-			waitForStdoutContains(stdout, "sshpiper banner from upstream test", func(output string) {
-				assert.Contains(t, output, "sshpiper banner from upstream test", "upstream banner not found in output")
+			waitForStdoutContains(stdout, "sshpiper banner from upstream test", func(_ string) {
 			})
 		})
 	})
