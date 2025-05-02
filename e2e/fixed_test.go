@@ -110,6 +110,7 @@ func TestHostkeyParam(t *testing.T) {
 		"ssh-keyscan",
 		"-p",
 		piperport,
+		"-vvv",
 		"127.0.0.1",
 	)
 

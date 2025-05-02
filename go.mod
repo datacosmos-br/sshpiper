@@ -15,7 +15,6 @@ require (
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pires/go-proxyproto v0.8.0
 	github.com/sirupsen/logrus v1.9.3
-	github.com/stretchr/testify v1.10.0
 	github.com/tg123/go-htpasswd v1.2.4
 	github.com/tg123/jobobject v0.1.0
 	github.com/tg123/remotesigner v0.0.3
