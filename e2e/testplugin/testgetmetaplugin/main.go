@@ -10,14 +10,12 @@ import (
 
 func main() {
 
-	libplugin.CreateAndRunPluginTemplate(&libplugin.PluginTemplate{
-		Name:  "getmeta",
-		CreateConfig: func(c *cli.Context) (*libplugin.SshPiperPluginConfig, error) {
+	libplugin.RunPluginEntrypoint(&libplugin.PluginEntrypoint{
+		Name: "getmeta",
+		CreateConfig: func(c *cli.Context) (*libplugin.PluginConfig, error) {
 
-
-			return &libplugin.SshPiperPluginConfig{
-				PasswordCallback: func(conn libplugin.ConnMetadata, password []byte) (*libplugin.Upstream, error) {
-
+			return &libplugin.PluginConfig{
+				PasswordCallback: func(conn libplugin.PluginConnMetadata, password []byte) (*libplugin.Upstream, error) {
 
 					target := conn.GetMeta("targetaddr")
 
@@ -31,7 +29,7 @@ func main() {
 						Host:          host,
 						Port:          int32(port),
 						IgnoreHostKey: true,
-						Auth:          libplugin.CreatePasswordAuth(password),
+						Auth:          libplugin.AuthPasswordCreate(password),
 					}, nil
 				},
 			}, nil

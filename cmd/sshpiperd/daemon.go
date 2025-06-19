@@ -74,7 +74,9 @@ func newDaemon(ctx *cli.Context) (*daemon, error) {
 			return nil, err
 		}
 
+		config.ClearHostKeys()
 		config.AddHostKey(private)
+		log.Infof("Loaded host key: %s", ssh.MarshalAuthorizedKey(private.PublicKey()))
 	} else {
 		keyfile := ctx.String("server-key")
 		privateKeyFiles, err := filepath.Glob(keyfile)
@@ -120,7 +122,9 @@ func newDaemon(ctx *cli.Context) (*daemon, error) {
 				return nil, err
 			}
 
+			config.ClearHostKeys()
 			config.AddHostKey(private)
+			log.Infof("Loaded host key: %s", ssh.MarshalAuthorizedKey(private.PublicKey()))
 		}
 	}
 
@@ -200,6 +204,11 @@ func (d *daemon) run() {
 					log.Errorf("failed to close connection: %v", cerr)
 				}
 			}()
+
+			log.Infof("DEBUG: Host keys count before handshake: %d", len(d.config.GetHostKeys()))
+			for i, k := range d.config.GetHostKeys() {
+				log.Infof("DEBUG: Host key %d type: %s", i, k.PublicKey().Type())
+			}
 
 			pipec := make(chan *ssh.PiperConn)
 			errorc := make(chan error)

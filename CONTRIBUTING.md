@@ -84,8 +84,8 @@ They are very simple and just less than 50 lines of code.
 Take `fixed` as an example:
 
 ```
-&libplugin.SshPiperPluginConfig{
-    PasswordCallback: func(conn libplugin.ConnMetadata, password []byte) (*libplugin.Upstream, error) {
+&libplugin.PluginConfig{
+    PasswordCallback: func(conn libplugin.PluginConnMetadata, password []byte) (*libplugin.Upstream, error) {
         return &libplugin.Upstream{
             Host:          host,
             Port:          int32(port),

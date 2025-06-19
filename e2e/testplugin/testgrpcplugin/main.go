@@ -15,7 +15,7 @@ import (
 
 func main() {
 
-	libplugin.CreateAndRunPluginTemplate(&libplugin.PluginTemplate{
+	libplugin.RunPluginEntrypoint(&libplugin.PluginEntrypoint{
 		Name:  "testplugin",
 		Usage: "e2e test plugin only",
 		Flags: []cli.Flag{
@@ -32,7 +32,7 @@ func main() {
 				Required: true,
 			},
 		},
-		CreateConfig: func(c *cli.Context) (*libplugin.SshPiperPluginConfig, error) {
+		CreateConfig: func(c *cli.Context) (*libplugin.PluginConfig, error) {
 
 			rpcclient, err := rpc.DialHTTP("tcp", c.String("rpcserver"))
 			if err != nil {
@@ -59,17 +59,17 @@ func main() {
 				return nil, fmt.Errorf("key format not supported")
 			}
 
-			return &libplugin.SshPiperPluginConfig{
-				NewConnectionCallback: func(conn libplugin.ConnMetadata) error {
+			return &libplugin.PluginConfig{
+				NewConnectionCallback: func(conn libplugin.PluginConnMetadata) error {
 					return rpcclient.Call("TestPlugin.NewConnection", "", nil)
 				},
-				PipeStartCallback: func(conn libplugin.ConnMetadata) {
+				PipeStartCallback: func(conn libplugin.PluginConnMetadata) {
 					rpcclient.Call("TestPlugin.PipeStart", "", nil)
 				},
-				PipeErrorCallback: func(conn libplugin.ConnMetadata, err error) {
+				PipeErrorCallback: func(conn libplugin.PluginConnMetadata, err error) {
 					rpcclient.Call("TestPlugin.PipeError", err.Error(), nil)
 				},
-				PasswordCallback: func(conn libplugin.ConnMetadata, password []byte) (*libplugin.Upstream, error) {
+				PasswordCallback: func(conn libplugin.PluginConnMetadata, password []byte) (*libplugin.Upstream, error) {
 					var newpass string
 					err := rpcclient.Call("TestPlugin.Password", string(password), &newpass)
 					if err != nil {
@@ -79,7 +79,7 @@ func main() {
 					return &libplugin.Upstream{
 						Host:          host,
 						Port:          int32(port),
-						Auth:          libplugin.CreateRemoteSignerAuth("testplugin"),
+						Auth:          libplugin.AuthRemoteSignerCreate("testplugin"),
 						IgnoreHostKey: true,
 					}, nil
 				},

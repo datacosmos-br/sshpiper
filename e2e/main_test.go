@@ -48,7 +48,9 @@ func waitForEndpointReadyWithTimeout(addr string, timeout time.Duration) {
 		conn, err := net.Dial("tcp", addr)
 		if err == nil {
 			log.Printf("endpoint %s is ready", addr)
-			conn.Close()
+			if err := conn.Close(); err != nil {
+				log.Printf("failed to close conn: %v", err)
+			}
 			break
 		}
 		time.Sleep(time.Second)
@@ -108,7 +110,7 @@ func waitForStdoutContains(stdout io.Reader, text string, cb func(string)) {
 
 func enterPassword(stdin io.Writer, stdout io.Reader, password string) {
 	waitForStdoutContains(stdout, "'s password", func(_ string) {
-		_, _ = stdin.Write([]byte(fmt.Sprintf("%v\n", password)))
+		_, _ = fmt.Fprintf(stdin, "%v\n", password)
 		log.Printf("got password prompt, sending password")
 	})
 }
@@ -118,7 +120,11 @@ func checkSharedFileContent(t *testing.T, targetfie string, expected string) {
 	if err != nil {
 		t.Errorf("failed to open shared file, %v", err)
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Printf("failed to close file: %v", err)
+		}
+	}()
 
 	b, err := io.ReadAll(f)
 	if err != nil {
@@ -157,7 +163,11 @@ func nextAvaliablePort() int {
 	if err != nil {
 		log.Panic(err)
 	}
-	defer l.Close()
+	defer func() {
+		if err := l.Close(); err != nil {
+			log.Printf("failed to close listener: %v", err)
+		}
+	}()
 	return l.Addr().(*net.TCPAddr).Port
 }
 
@@ -184,4 +194,121 @@ func TestMain(m *testing.M) {
 	}
 
 	os.Exit(m.Run())
+}
+
+// SSHTestParams defines all parameters for a flexible SSH test.
+type SSHTestParams struct {
+	T                *testing.T
+	PiperPort        string
+	Username         string
+	Host             string // e.g. 127.0.0.1
+	KeyPath          string // private key path
+	IdentitiesOnly   bool
+	Command          string       // command to run
+	Password         string       // password for password auth
+	PasswordRequired bool         // if true, always try password auth; if false, never try, even if Password is set
+	WaitFor          string       // string to wait for in stdout (e.g. SSHREADY)
+	StdinTrigger     string       // string to send to stdin after WaitFor
+	ExpectSuccess    bool         // expect SSH to succeed
+	CheckFile        bool         // check shared file content
+	ExpectedText     string       // expected file content
+	TargetFile       string       // shared file name
+	SSHBin           string       // ssh binary (default: ssh)
+	ExtraOpts        []string     // extra ssh options
+	StderrCheck      func([]byte) // custom check for stderr (for negative tests)
+}
+
+// mustGenKey generates a new SSH key at keyPath, failing the test on error.
+func mustGenKey(t *testing.T, keyPath string) {
+	if err := runCmdAndWait("rm", "-f", keyPath); err != nil {
+		t.Errorf("failed to remove key: %v", err)
+	}
+	if err := runCmdAndWait("ssh-keygen", "-N", "", "-f", keyPath); err != nil {
+		t.Fatalf("failed to generate key: %v", err)
+	}
+}
+
+// mustKeyScan runs ssh-keyscan for the given host/port, failing the test on error.
+func mustKeyScan(t *testing.T, port, host string) []byte {
+	out, err := runAndGetStdout("ssh-keyscan", "-p", port, host)
+	if err != nil {
+		t.Fatalf("failed to run ssh-keyscan for %s:%s: %v", host, port, err)
+	}
+	return out
+}
+
+// runSSHTestUnified runs a flexible SSH test covering password, key, CA, multi-CA, and negative/positive cases.
+func runSSHTestUnified(p SSHTestParams) {
+	t := p.T
+	sshBin := p.SSHBin
+	if sshBin == "" {
+		sshBin = "ssh"
+	}
+	args := []string{"-v", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-p", p.PiperPort, "-l", p.Username}
+	if p.KeyPath != "" {
+		args = append(args, "-i", p.KeyPath)
+	}
+	if p.IdentitiesOnly {
+		args = append(args, "-o", "IdentitiesOnly=yes")
+	}
+	if p.ExtraOpts != nil {
+		args = append(args, p.ExtraOpts...)
+	}
+	host := p.Host
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	args = append(args, host)
+	if p.Command != "" {
+		args = append(args, p.Command)
+	}
+	c, stdin, stdout, err := runCmd(sshBin, args...)
+	if p.ExpectSuccess {
+		if err != nil {
+			t.Errorf("failed to ssh: %v", err)
+			return
+		}
+		defer killCmd(c)
+		if p.PasswordRequired {
+			enterPassword(stdin, stdout, p.Password)
+		}
+		if p.WaitFor != "" {
+			waitForStdoutContains(stdout, p.WaitFor, func(_ string) {
+				if p.StdinTrigger != "" {
+					if _, err := fmt.Fprintf(stdin, "%v\n", p.StdinTrigger); err != nil {
+						t.Errorf("Failed to write to stdin: %v", err)
+					}
+				}
+			})
+		}
+		time.Sleep(time.Second * 3)
+		if p.CheckFile {
+			if p.TargetFile == "" {
+				t.Errorf("TargetFile must be set when CheckFile is true")
+				return
+			}
+			checkSharedFileContent(t, p.TargetFile, p.ExpectedText)
+		}
+	} else {
+		if err == nil {
+			killCmd(c)
+			t.Errorf("Expected SSH to fail, but it succeeded")
+		} else {
+			out, _ := io.ReadAll(stdout)
+			if p.StderrCheck != nil {
+				p.StderrCheck(out)
+			} else if !bytes.Contains(out, []byte("Permission denied")) && !bytes.Contains(out, []byte("no matching pipe")) {
+				t.Errorf("SSH failed for unexpected reason: %s", out)
+			}
+		}
+	}
+}
+
+// mustMkdirTemp creates a temp directory and fails the test on error.
+func mustMkdirTemp(t *testing.T, dir, pattern string) string {
+	d, err := os.MkdirTemp(dir, pattern)
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	return d
 }

@@ -1,317 +1,151 @@
 package main
 
 import (
-	"bytes"
-	"context"
-	"encoding/base64"
-	"fmt"
-	"os"
+	"path/filepath"
 	"regexp"
 
-	log "github.com/sirupsen/logrus"
-	"github.com/tg123/go-htpasswd"
 	"github.com/tg123/sshpiper/libplugin"
 	piperv1beta1 "github.com/tg123/sshpiper/plugin/kubernetes/apis/sshpiper/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// skelpipeWrapper implements libplugin.SkelPipeFrom/To for Kubernetes Pipe CRD.
 type skelpipeWrapper struct {
 	plugin *plugin
-
-	pipe *piperv1beta1.Pipe
+	pipe   *piperv1beta1.Pipe
 }
 
-type skelpipeFromWrapper struct {
-	plugin *plugin
-
-	pipe *piperv1beta1.Pipe
-	from *piperv1beta1.FromSpec
-	to   *piperv1beta1.ToSpec
-}
-
-type skelpipePasswordWrapper struct {
-	skelpipeFromWrapper
-}
-
-type skelpipePublicKeyWrapper struct {
-	skelpipeFromWrapper
-}
-
-type skelpipeToWrapper struct {
-	plugin *plugin
-
-	pipe     *piperv1beta1.Pipe
-	username string
-	to       *piperv1beta1.ToSpec
-}
-
-type skelpipeToPasswordWrapper struct {
-	skelpipeToWrapper
-}
-
-type skelpipeToPrivateKeyWrapper struct {
-	skelpipeToWrapper
-}
-
+// From returns the list of SkelPipeFrom for this pipe.
 func (s *skelpipeWrapper) From() []libplugin.SkelPipeFrom {
-	var froms []libplugin.SkelPipeFrom
-	for _, f := range s.pipe.Spec.From {
-
-		w := &skelpipeFromWrapper{
-			plugin: s.plugin,
-			pipe:   s.pipe,
-			from:   &f,
-			to:     &s.pipe.Spec.To,
-		}
-
-		if f.AuthorizedKeysData != "" || f.AuthorizedKeysFile != "" {
-			froms = append(froms, &skelpipePublicKeyWrapper{
-				skelpipeFromWrapper: *w,
-			})
-		} else {
-			froms = append(froms, &skelpipePasswordWrapper{
-				skelpipeFromWrapper: *w,
-			})
-		}
+	fromSpecs := make([]interface{}, len(s.pipe.Spec.From))
+	for i := range s.pipe.Spec.From {
+		fromSpecs[i] = &s.pipe.Spec.From[i]
 	}
-	return froms
-}
-
-func (s *skelpipeToWrapper) User(conn libplugin.ConnMetadata) string {
-	return s.username
-}
-
-func (s *skelpipeToWrapper) Host(conn libplugin.ConnMetadata) string {
-	return s.to.Host
-}
-
-func (s *skelpipeToWrapper) IgnoreHostKey(conn libplugin.ConnMetadata) bool {
-	return s.to.IgnoreHostkey
-}
-
-func (s *skelpipeToWrapper) KnownHosts(conn libplugin.ConnMetadata) ([]byte, error) {
-	return base64.StdEncoding.DecodeString(s.to.KnownHostsData)
-}
-
-func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (libplugin.SkelPipeTo, error) {
-	user := conn.User()
-
-	matched := s.from.Username == user
-	targetuser := s.to.Username
-
-	if targetuser == "" {
-		targetuser = user
-	}
-
-	if s.from.UsernameRegexMatch {
-		re, err := regexp.Compile(s.from.Username)
-		if err != nil {
-			return nil, err
+	to := &s.pipe.Spec.To
+	matchConnFn := func(from interface{}, conn libplugin.PluginConnMetadata) (libplugin.SkelPipeTo, error) {
+		f := from.(*piperv1beta1.FromSpec)
+		user := conn.User()
+		targetuser := to.Username
+		matched := f.Username == user
+		if targetuser == "" {
+			targetuser = user
 		}
-
-		matched = re.MatchString(user)
-
+		if f.UsernameRegexMatch {
+			re, err := regexp.Compile(f.Username)
+			if err != nil {
+				return nil, err
+			}
+			matched = re.MatchString(user)
+			if matched {
+				targetuser = re.ReplaceAllString(user, to.Username)
+			}
+		}
 		if matched {
-			targetuser = re.ReplaceAllString(user, s.to.Username)
+			knownHostsFn := func(conn libplugin.PluginConnMetadata) ([]byte, error) {
+				return libplugin.KnownHostsLoader(
+					libplugin.ListOrString{Str: to.KnownHostsData},
+					libplugin.ListOrString{},
+					map[string]string{"DOWNSTREAM_USER": conn.User(), "UPSTREAM_USER": targetuser},
+					filepath.Dir("/"),
+				)(conn)
+			}
+			toWrap := libplugin.NewSkelPipeToWrapper(s.plugin, to, targetuser, to.Host, to.IgnoreHostkey, knownHostsFn)
+			return &toWrap, nil
 		}
+		return nil, nil
 	}
-
-	if matched {
-
-		if s.to.PrivateKeySecret.Name != "" {
-			return &skelpipeToPrivateKeyWrapper{
-				skelpipeToWrapper: skelpipeToWrapper{
-					plugin:   s.plugin,
-					pipe:     s.pipe,
-					username: targetuser,
-					to:       s.to,
-				},
-			}, nil
-		}
-
-		return &skelpipeToPasswordWrapper{
-			skelpipeToWrapper: skelpipeToWrapper{
-				plugin:   s.plugin,
-				pipe:     s.pipe,
-				username: targetuser,
-				to:       s.to,
-			},
-		}, nil
-	}
-
-	return nil, nil
+	return libplugin.FromGeneric(s.plugin, to, fromSpecs, matchConnFn, nil)
 }
 
-func (s *skelpipePasswordWrapper) TestPassword(conn libplugin.ConnMetadata, password []byte) (bool, error) {
+// listPipe returns all SkelPipe instances for the plugin.
+func (p *plugin) listPipe(_ libplugin.PluginConnMetadata) ([]libplugin.SkelPipe, error) {
+	return libplugin.ListPipeGeneric(
+		func() ([]interface{}, error) {
+			pipes, err := p.list()
+			if err != nil {
+				return nil, err
+			}
+			out := make([]interface{}, len(pipes))
+			copy(out, pipes)
+			return out, nil
+		},
+		func(pipe interface{}) libplugin.SkelPipe {
+			return &skelpipeWrapper{plugin: p, pipe: pipe.(*piperv1beta1.Pipe)}
+		},
+	)
+}
 
-	pwds, err := loadStringAndFile(s.from.HtpasswdData, s.from.HtpasswdFile)
-	if err != nil {
-		return false, err
-	}
-
-	pwdmatched := len(pwds) == 0
-
-	for _, data := range pwds {
-		log.Debugf("try to match password using htpasswd")
-		auth, err := htpasswd.NewFromReader(bytes.NewReader(data), htpasswd.DefaultSystems, nil)
+// TestPassword checks the password using Kubernetes Secret, Vault, or generic logic.
+func (s *skelpipeWrapper) TestPassword(conn libplugin.PluginConnMetadata, password []byte) (bool, error) {
+	to := &s.pipe.Spec.To
+	anno := libplugin.GetAnnotations(s.pipe)
+	fieldNames := libplugin.ResolveFieldNames(anno, "password_field_name", "password")
+	if to.PasswordSecret.Name != "" {
+		data, err := libplugin.LoadKubernetesSecretField(s.pipe.Namespace, to.PasswordSecret.Name, fieldNames, s.plugin.k8sclient)
 		if err != nil {
 			return false, err
 		}
-
-		if auth.Match(conn.User(), string(password)) {
-			pwdmatched = true
-		}
+		return string(data) == string(password), nil
 	}
-
-	return pwdmatched, nil // yaml do not test input password
+	if to.VaultKVPath != "" {
+		data, err := libplugin.LoadVaultSecretField(to.VaultKVPath, fieldNames)
+		if err != nil {
+			return false, err
+		}
+		return string(data) == string(password), nil
+	}
+	fromSpecs := libplugin.ToInterfaceSlice(s.pipe.Spec.From)
+	return libplugin.CheckPasswordFromSpecs(fromSpecs, conn.User(), password)
 }
 
-func (s *skelpipePublicKeyWrapper) AuthorizedKeys(conn libplugin.ConnMetadata) ([]byte, error) {
-	byteSlices, err := loadStringAndFile(s.from.AuthorizedKeysData, s.from.AuthorizedKeysFile)
-	if err != nil {
-		return nil, err
+// AuthorizedKeys loads authorized keys from Kubernetes Secret, Vault, or generic logic.
+func (s *skelpipeWrapper) AuthorizedKeys(conn libplugin.PluginConnMetadata) ([]byte, error) {
+	anno := libplugin.GetAnnotations(s.pipe)
+	fieldNames := libplugin.ResolveFieldNames(anno, "authorizedkeys_field_name", "authorized_keys", "authorized_keys_data")
+	to := &s.pipe.Spec.To
+	if to.VaultKVPath != "" {
+		data, err := libplugin.LoadVaultSecretField(to.VaultKVPath, fieldNames)
+		if err == nil && len(data) > 0 {
+			return data, nil
+		}
 	}
-
-	return bytes.Join(byteSlices, []byte("\n")), nil
+	return libplugin.AggregateFieldsFromSpecs(
+		libplugin.ToInterfaceSlice(s.pipe.Spec.From),
+		[]string{"authorized_keys", "authorized_keys_data", "ssh-key"},
+		[]string{"AuthorizedKeysFile"},
+		[]string{"AuthorizedKeysData"},
+		conn,
+		"",
+	)
 }
 
-func (s *skelpipePublicKeyWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata) ([]byte, error) {
-	if s.from.VaultKVPath != "" {
-		secretData, err := libplugin.GetSecret(s.from.VaultKVPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to retrieve Vault secret from %s: %v", s.from.VaultKVPath, err)
-		}
-		caStr, ok := secretData["ssh-ca"].(string)
-		if !ok || caStr == "" {
-			return nil, fmt.Errorf("CA key not found in Vault secret at %s", s.from.VaultKVPath)
-		}
-		return []byte(caStr), nil
-	}
-	return []byte(s.from.TrustedUserCAKeysData), nil
-}
-func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([]byte, []byte, error) {
-	if s.to.VaultKVPath != "" {
-		secretData, err := libplugin.GetSecret(s.to.VaultKVPath)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to retrieve Vault secret from %s: %v", s.to.VaultKVPath, err)
-		}
-		keyStr, ok := secretData["ssh-privatekey"].(string)
-		if !ok || keyStr == "" {
-			return nil, nil, fmt.Errorf("private key not found in Vault secret at %s", s.to.VaultKVPath)
-		}
-		var pubStr string
-		if v, ok := secretData["ssh-publickey-cert"].(string); ok {
-			pubStr = v
-		}
-		return []byte(keyStr), []byte(pubStr), nil
-	}
-
-	log.Debugf("mapping to %v private key using secret %v", s.to.Host, s.to.PrivateKeySecret.Name)
-	secret, err := s.plugin.k8sclient.Secrets(s.pipe.Namespace).Get(context.Background(), s.to.PrivateKeySecret.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	anno := s.pipe.GetAnnotations()
-	var publicKey []byte
-	var privateKey []byte
-
-	for _, k := range []string{anno["privatekey_field_name"], "ssh-privatekey", "privatekey"} {
-		data := secret.Data[k]
-		if data != nil {
-			log.Debugf("found private key in secret %v/%v", s.to.PrivateKeySecret.Name, k)
-			privateKey = data
-			break
+// TrustedUserCAKeys loads CA keys from Kubernetes Secret, Vault, or generic logic.
+func (s *skelpipeWrapper) TrustedUserCAKeys(conn libplugin.PluginConnMetadata) ([]byte, error) {
+	anno := libplugin.GetAnnotations(s.pipe)
+	fieldNames := libplugin.ResolveFieldNames(anno, "cakey_field_name", "trusted_user_ca_keys", "trusted_user_ca_keys_data")
+	to := &s.pipe.Spec.To
+	if to.VaultKVPath != "" {
+		data, err := libplugin.LoadVaultSecretField(to.VaultKVPath, fieldNames)
+		if err == nil && len(data) > 0 {
+			return data, nil
 		}
 	}
-
-	for _, k := range []string{anno["publickey_field_name"], "ssh-publickey-cert", "publickey-cert", "ssh-publickey", "publickey"} {
-		data := secret.Data[k]
-		if data != nil {
-			log.Debugf("found publickey key cert in secret %v/%v", s.to.PrivateKeySecret.Name, k)
-			publicKey = data
-			break
-		}
-	}
-
-	return privateKey, publicKey, nil
+	return libplugin.AggregateFieldsFromSpecs(
+		libplugin.ToInterfaceSlice(s.pipe.Spec.From),
+		[]string{"trusted_user_ca_keys", "trusted_user_ca_keys_data", "ca-key"},
+		[]string{"TrustedUserCAKeysFile"},
+		[]string{"TrustedUserCAKeysData"},
+		conn,
+		"",
+	)
 }
 
-func (s *skelpipeToPasswordWrapper) OverridePassword(conn libplugin.ConnMetadata) ([]byte, error) {
-	if s.to.VaultKVPath != "" {
-		secretData, err := libplugin.GetSecret(s.to.VaultKVPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to retrieve Vault secret from %s: %v", s.to.VaultKVPath, err)
-		}
-		pwd, ok := secretData["password"].(string)
-		if !ok || pwd == "" {
-			return nil, fmt.Errorf("password not found in Vault secret at %s", s.to.VaultKVPath)
-		}
-		return []byte(pwd), nil
-	}
-
-	if s.to.PasswordSecret.Name != "" {
-		log.Debugf("mapping to %v password using secret %v", s.to.Host, s.to.PasswordSecret.Name)
-		secret, err := s.plugin.k8sclient.Secrets(s.pipe.Namespace).Get(context.Background(), s.to.PasswordSecret.Name, metav1.GetOptions{})
-		if err != nil {
-			return nil, err
-		}
-
-		anno := s.pipe.GetAnnotations()
-		for _, k := range []string{anno["password_field_name"], "password"} {
-			data := secret.Data[k]
-			if data != nil {
-				log.Debugf("found password in secret %v/%v", s.to.PasswordSecret.Name, k)
-				return data, nil
-			}
-		}
-
-		log.Warnf("password field not found in secret %v", s.to.PasswordSecret.Name)
-	}
-
-	return nil, nil
-}
-
-func loadStringAndFile(base64orraw string, filepath string) ([][]byte, error) {
-
-	all := make([][]byte, 0, 2)
-
-	if base64orraw != "" {
-		data, err := base64.StdEncoding.DecodeString(base64orraw)
-		if err != nil {
-			data = []byte(base64orraw)
-		}
-
-		all = append(all, data)
-	}
-
-	if filepath != "" {
-		data, err := os.ReadFile(filepath)
-		if err != nil {
-			return nil, err
-		}
-
-		all = append(all, data)
-	}
-
-	return all, nil
-}
-
-func (p *plugin) listPipe(_ libplugin.ConnMetadata) ([]libplugin.SkelPipe, error) {
-	kpipes, err := p.list()
-	if err != nil {
-		return nil, err
-	}
-
-	var pipes []libplugin.SkelPipe
-	for _, pipe := range kpipes {
-		wrapper := &skelpipeWrapper{
-			plugin: p,
-			pipe:   pipe,
-		}
-		pipes = append(pipes, wrapper)
-
-	}
-
-	return pipes, nil
+// KnownHosts loads known_hosts data using the generic loader.
+func (s *skelpipeWrapper) KnownHosts(conn libplugin.PluginConnMetadata) ([]byte, error) {
+	to := &s.pipe.Spec.To
+	return libplugin.KnownHostsLoader(
+		libplugin.ListOrString{Str: to.KnownHostsData},
+		libplugin.ListOrString{},
+		map[string]string{"DOWNSTREAM_USER": conn.User()},
+		filepath.Dir("/"),
+	)(conn)
 }

@@ -1,17 +1,28 @@
+// Package libplugin: Core Plugin Server, Configuration, and gRPC Interface for SSHPiper Plugins
+//
+// Provides the core plugin server, configuration, and gRPC interface for SSHPiper plugins, including connection metadata, callback hooks, and helpers for plugin instantiation.
+//
+// # Features
+//   - PluginConnMetadata: Interface for connection metadata passed to plugin callbacks
+//   - PluginConfig: Struct holding all plugin callback hooks
+//   - PluginServer: Interface for plugin server implementations
+//   - PluginServerFromStdio, PluginServerFromGRPC: Helpers to create plugin servers
+//
+// # Usage Example
+//
+//	config := &libplugin.PluginConfig{...}
+//	plugin, err := libplugin.PluginServerFromStdio(*config)
+//	secret, err := libplugin.GetSecret("secret/data/mykey")
 package libplugin
 
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net"
 	"os"
-	sync "sync"
-	"time"
 
-	vault "github.com/hashicorp/vault/api"
 	"github.com/tg123/remotesigner/grpcsigner"
 	"github.com/tg123/sshpiper/libplugin/ioconn"
 	"google.golang.org/grpc"
@@ -19,81 +30,97 @@ import (
 	status "google.golang.org/grpc/status"
 )
 
-type ConnMetadata interface {
+// PluginConnMetadata provides metadata about the SSH connection for plugin callbacks.
+//
+// Example usage:
+//
+//	user := conn.User()
+//	addr := conn.RemoteAddr()
+//	id := conn.UniqueID()
+//	val := conn.GetMeta("key")
+type PluginConnMetadata interface {
 	User() string
-
 	RemoteAddr() string
-
 	UniqueID() string
-
 	GetMeta(key string) string
 }
 
-func (c *ConnMeta) User() string {
-	return c.UserName
-}
-
-func (c *ConnMeta) RemoteAddr() string {
-	return c.FromAddr
-}
-
-func (c *ConnMeta) UniqueID() string {
-	return c.UniqId
-}
-
-func (c *ConnMeta) GetMeta(key string) string {
-	return c.Metadata[key]
-}
-
+// KeyboardInteractiveChallenge is a callback for keyboard-interactive authentication.
 type KeyboardInteractiveChallenge func(user, instruction string, question string, echo bool) (answer string, err error)
 
-type SshPiperPluginConfig struct {
-	NewConnectionCallback func(conn ConnMetadata) error
+// PluginConfig holds all plugin callback hooks for the plugin server.
+//
+// Example usage:
+//
+//	config := &PluginConfig{
+//	  PasswordCallback: myPasswordCallback,
+//	  PublicKeyCallback: myPublicKeyCallback,
+//	}
+type PluginConfig struct {
+	NewConnectionCallback func(conn PluginConnMetadata) error
 
-	NextAuthMethodsCallback func(conn ConnMetadata) ([]string, error)
+	NextAuthMethodsCallback func(conn PluginConnMetadata) ([]string, error)
 
-	NoClientAuthCallback func(conn ConnMetadata) (*Upstream, error)
+	NoClientAuthCallback func(conn PluginConnMetadata) (*Upstream, error)
 
-	PasswordCallback func(conn ConnMetadata, password []byte) (*Upstream, error)
+	PasswordCallback func(conn PluginConnMetadata, password []byte) (*Upstream, error)
 
-	PublicKeyCallback func(conn ConnMetadata, key []byte) (*Upstream, error)
+	PublicKeyCallback func(conn PluginConnMetadata, key []byte) (*Upstream, error)
 
-	PublicKeyCallbackNew func(conn ConnMetadata, key []byte, keyType string) (*Upstream, error)
+	PublicKeyCallbackNew func(conn PluginConnMetadata, key []byte, keyType string) (*Upstream, error)
 
-	KeyboardInteractiveCallback func(conn ConnMetadata, client KeyboardInteractiveChallenge) (*Upstream, error)
+	KeyboardInteractiveCallback func(conn PluginConnMetadata, client KeyboardInteractiveChallenge) (*Upstream, error)
 
-	UpstreamAuthFailureCallback func(conn ConnMetadata, method string, err error, allowmethods []string)
+	UpstreamAuthFailureCallback func(conn PluginConnMetadata, method string, err error, allowmethods []string)
 
-	BannerCallback func(conn ConnMetadata) string
+	BannerCallback func(conn PluginConnMetadata) string
 
-	VerifyHostKeyCallback func(conn ConnMetadata, hostname, netaddr string, key []byte) error
+	VerifyHostKeyCallback func(conn PluginConnMetadata, hostname, netaddr string, key []byte) error
 
 	PipeCreateErrorCallback func(remoteAddr string, err error)
 
-	PipeStartCallback func(conn ConnMetadata)
+	PipeStartCallback func(conn PluginConnMetadata)
 
-	PipeErrorCallback func(conn ConnMetadata, err error)
+	PipeErrorCallback func(conn PluginConnMetadata, err error)
 
 	GrpcRemoteSignerFactory grpcsigner.SignerFactory
 }
 
-type SshPiperPlugin interface {
+// PluginServer is the interface for a plugin server implementation.
+//
+// Example usage:
+//
+//	plugin, err := PluginServerFromStdio(config)
+//	err := plugin.Serve()
+type PluginServer interface {
 	SetConfigLoggerCallback(cb func(w io.Writer, level string, tty bool))
-	// GetGrpcServer() *grpc.Server
 	Serve() error
 }
 
-func NewFromStdio(config SshPiperPluginConfig) (SshPiperPlugin, error) {
+// PluginServerFromStdio creates a PluginServer using stdio for transport.
+//
+// Example usage:
+//
+//	plugin, err := PluginServerFromStdio(config)
+//	err := plugin.Serve()
+func PluginServerFromStdio(config PluginConfig) (PluginServer, error) {
 	s := grpc.NewServer()
 	l, err := ioconn.ListenFromSingleIO(os.Stdin, os.Stdout)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewFromGrpc(config, s, l)
+	return PluginServerFromGRPC(config, s, l)
 }
 
-func NewFromGrpc(config SshPiperPluginConfig, grpc *grpc.Server, listener net.Listener) (SshPiperPlugin, error) {
+// PluginServerFromGRPC creates a PluginServer using a provided gRPC server and listener.
+//
+// Example usage:
+//
+//	s := grpc.NewServer()
+//	l, _ := net.Listen("tcp", ":1234")
+//	plugin, err := PluginServerFromGRPC(config, s, l)
+func PluginServerFromGRPC(config PluginConfig, grpc *grpc.Server, listener net.Listener) (PluginServer, error) {
 	r, w := io.Pipe()
 
 	s := &server{
@@ -128,7 +155,7 @@ func NewFromGrpc(config SshPiperPluginConfig, grpc *grpc.Server, listener net.Li
 type server struct {
 	UnimplementedSshPiperPluginServer
 
-	config   SshPiperPluginConfig
+	config   PluginConfig
 	grpc     *grpc.Server
 	listener net.Listener
 
@@ -401,7 +428,7 @@ func (s *server) UpstreamAuthFailureNotice(ctx context.Context, req *UpstreamAut
 	var methods []string
 
 	for _, method := range req.GetAllowedMethods() {
-		m := AuthMethodTypeToName(method)
+		m := AuthMethodName(method)
 		if m == "" {
 			continue
 		}
@@ -470,84 +497,13 @@ func (s *server) PipeCreateErrorNotice(ctx context.Context, req *PipeCreateError
 	return &PipeCreateErrorNoticeResponse{}, nil
 }
 
-func NewVaultClient() (*vault.Client, error) {
-	cfg := vault.DefaultConfig()
-	// VAULT_ADDR must be set in the environment (e.g., "https://vault.example.com")
-	addr := os.Getenv("VAULT_ADDR")
-	if addr == "" {
-		return nil, errors.New("VAULT_ADDR not set")
+// Adapter methods for generated ConnMeta to implement PluginConnMetadata interface.
+func (c *ConnMeta) User() string       { return c.GetUserName() }
+func (c *ConnMeta) RemoteAddr() string { return c.GetFromAddr() }
+func (c *ConnMeta) UniqueID() string   { return c.GetUniqId() }
+func (c *ConnMeta) GetMeta(key string) string {
+	if c.GetMetadata() == nil {
+		return ""
 	}
-	cfg.Address = addr
-
-	client, err := vault.NewClient(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	// VAULT_TOKEN must be set (or use another auth method like AppRole)
-	token := os.Getenv("VAULT_TOKEN")
-	if token == "" {
-		return nil, errors.New("VAULT_TOKEN not set")
-	}
-	client.SetToken(token)
-	return client, nil
-}
-
-// getSecret retrieves a secret from the given path in Vault.
-// The returned map contains the secret data.
-func getSecret(path string) (map[string]interface{}, error) {
-	client, err := NewVaultClient()
-	if err != nil {
-		return nil, err
-	}
-
-	secret, err := client.Logical().Read(path)
-	if err != nil {
-		return nil, err
-	}
-	if secret == nil || secret.Data == nil {
-		return nil, errors.New("no data found at Vault path: " + path)
-	}
-	return secret.Data, nil
-}
-
-// Global cache for Vault secrets
-var (
-	vaultCache      = make(map[string]vaultCacheEntry)
-	vaultCacheMutex sync.RWMutex
-	// VAULT_CACHE_DURATION as a duration string (e.g. "5m"); default to 5 minutes if not set.
-	vaultCacheDuration = func() time.Duration {
-		if dStr := os.Getenv("VAULT_CACHE_DURATION"); dStr != "" {
-			d, err := time.ParseDuration(dStr)
-			if err == nil {
-				return d
-			}
-		}
-		return 5 * time.Minute
-	}()
-)
-
-type vaultCacheEntry struct {
-	secretData map[string]interface{}
-	expiry     time.Time
-}
-
-func GetSecret(path string) (map[string]interface{}, error) {
-	vaultCacheMutex.RLock()
-	entry, found := vaultCache[path]
-	vaultCacheMutex.RUnlock()
-	if found && time.Now().Before(entry.expiry) {
-		return entry.secretData, nil
-	}
-	secretData, err := getSecret(path)
-	if err != nil {
-		return nil, err
-	}
-	vaultCacheMutex.Lock()
-	vaultCache[path] = vaultCacheEntry{
-		secretData: secretData,
-		expiry:     time.Now().Add(vaultCacheDuration),
-	}
-	vaultCacheMutex.Unlock()
-	return secretData, nil
+	return c.GetMetadata()[key]
 }

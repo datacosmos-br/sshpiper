@@ -5,7 +5,6 @@ import (
 	"os"
 	"path"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -31,41 +30,22 @@ func TestDocker(t *testing.T) {
 		randtext := uuid.New().String()
 		targetfie := uuid.New().String()
 
-		c, stdin, stdout, err := runCmd(
-			"ssh",
-			"-v",
-			"-o",
-			"StrictHostKeyChecking=no",
-			"-o",
-			"UserKnownHostsFile=/dev/null",
-			"-p",
-			piperport,
-			"-l",
-			"pass",
-			"127.0.0.1",
-			fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
-		)
-
-		if err != nil {
-			t.Errorf("failed to ssh to piper-fixed, %v", err)
-		}
-
-		defer killCmd(c)
-
-		enterPassword(stdin, stdout, "pass")
-
-		time.Sleep(time.Second) // wait for file flush
-
-		checkSharedFileContent(t, targetfie, randtext)
+		runSSHTestUnified(SSHTestParams{
+			T:                t,
+			PiperPort:        piperport,
+			Username:         "pass",
+			Command:          fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
+			Password:         "pass",
+			PasswordRequired: true,
+			ExpectSuccess:    true,
+			CheckFile:        true,
+			ExpectedText:     randtext,
+			TargetFile:       targetfie,
+		})
 	})
 
 	t.Run("key", func(t *testing.T) {
-
-		keyfiledir, err := os.MkdirTemp("", "")
-		if err != nil {
-			t.Errorf("failed to create temp key file: %v", err)
-		}
-
+		keyfiledir := mustMkdirTemp(t, "", "")
 		keyfile := path.Join(keyfiledir, "key")
 
 		if err := os.WriteFile(keyfile, []byte(testprivatekey), 0400); err != nil {
@@ -79,31 +59,17 @@ func TestDocker(t *testing.T) {
 		randtext := uuid.New().String()
 		targetfie := uuid.New().String()
 
-		c, _, _, err := runCmd(
-			"ssh",
-			"-v",
-			"-o",
-			"StrictHostKeyChecking=no",
-			"-o",
-			"UserKnownHostsFile=/dev/null",
-			"-p",
-			piperport,
-			"-l",
-			"anyuser",
-			"-i",
-			keyfile,
-			"127.0.0.1",
-			fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
-		)
-
-		if err != nil {
-			t.Errorf("failed to ssh to piper-fixed, %v", err)
-		}
-
-		defer killCmd(c)
-
-		time.Sleep(time.Second) // wait for file flush
-
-		checkSharedFileContent(t, targetfie, randtext)
+		runSSHTestUnified(SSHTestParams{
+			T:                t,
+			PiperPort:        piperport,
+			Username:         "anyuser",
+			KeyPath:          keyfile,
+			Command:          fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
+			PasswordRequired: false,
+			ExpectSuccess:    true,
+			CheckFile:        true,
+			ExpectedText:     randtext,
+			TargetFile:       targetfie,
+		})
 	})
 }

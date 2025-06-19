@@ -8,7 +8,7 @@ import (
 
 func main() {
 
-	libplugin.CreateAndRunPluginTemplate(&libplugin.PluginTemplate{
+	libplugin.RunPluginEntrypoint(&libplugin.PluginEntrypoint{
 		Name:  "fixed",
 		Usage: "sshpiperd fixed plugin, only password auth is supported",
 		Flags: []cli.Flag{
@@ -19,7 +19,7 @@ func main() {
 				Required: true,
 			},
 		},
-		CreateConfig: func(c *cli.Context) (*libplugin.SshPiperPluginConfig, error) {
+		CreateConfig: func(c *cli.Context) (*libplugin.PluginConfig, error) {
 			target := c.String("target")
 
 			host, port, err := libplugin.SplitHostPortForSSH(target)
@@ -27,14 +27,14 @@ func main() {
 				return nil, err
 			}
 
-			return &libplugin.SshPiperPluginConfig{
-				PasswordCallback: func(conn libplugin.ConnMetadata, password []byte) (*libplugin.Upstream, error) {
+			return &libplugin.PluginConfig{
+				PasswordCallback: func(conn libplugin.PluginConnMetadata, password []byte) (*libplugin.Upstream, error) {
 					log.Info("routing to ", target)
 					return &libplugin.Upstream{
 						Host:          host,
 						Port:          int32(port),
 						IgnoreHostKey: true,
-						Auth:          libplugin.CreatePasswordAuth(password),
+						Auth:          libplugin.AuthPasswordCreate(password),
 					}, nil
 				},
 			}, nil

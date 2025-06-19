@@ -2,13 +2,13 @@ package main
 
 import (
 	"github.com/tg123/sshpiper/libplugin"
-	"github.com/urfave/cli/v2"
+	cli "github.com/urfave/cli/v2"
 )
 
 func main() {
 	plugin := newYamlPlugin()
 
-	libplugin.CreateAndRunPluginTemplate(&libplugin.PluginTemplate{
+	libplugin.RunPluginEntrypoint(&libplugin.PluginEntrypoint{
 		Name:  "yaml",
 		Usage: "sshpiperd yaml plugin",
 		Flags: []cli.Flag{
@@ -26,7 +26,7 @@ func main() {
 				Destination: &plugin.NoCheckPerm,
 			},
 		},
-		CreateConfig: func(c *cli.Context) (*libplugin.SshPiperPluginConfig, error) {
+		CreateConfig: func(c *cli.Context) (*libplugin.PluginConfig, error) {
 			skel := libplugin.NewSkelPlugin(plugin.listPipe)
 			return skel.CreateConfig(), nil
 		},

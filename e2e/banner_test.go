@@ -64,7 +64,11 @@ func TestBanner(t *testing.T) {
 		if err != nil {
 			t.Errorf("failed to create temp file: %v", err)
 		}
-		defer os.Remove(bannerfile.Name())
+		defer func() {
+			if err := os.Remove(bannerfile.Name()); err != nil {
+				t.Errorf("failed to remove banner file: %v", err)
+			}
+		}()
 
 		if _, err := bannerfile.WriteString(randtext); err != nil {
 			t.Errorf("failed to write to temp file: %v", err)

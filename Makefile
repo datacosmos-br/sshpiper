@@ -164,7 +164,8 @@ e2e-all:
 	@cd e2e && \
 	COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 \
 		docker compose up --build \
-			--abort-on-container-exit --exit-code-from testrunner 2>&1 | \
+			--abort-on-container-exit \
+			--exit-code-from testrunner 2>&1 | \
 			tee ../e2e-output.log | \
 			grep --line-buffered -E 'PASS|FAIL|panic:|---' || true ; \
 	EXIT=$$? ; \

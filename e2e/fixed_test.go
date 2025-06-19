@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -47,38 +46,21 @@ func TestFixed(t *testing.T) {
 			randtext := uuid.New().String()
 			targetfie := uuid.New().String()
 
-			c, stdin, stdout, err := runCmd(
-				tc.bin,
-				"-v",
-				"-o",
-				"StrictHostKeyChecking=no",
-				"-o",
-				"UserKnownHostsFile=/dev/null",
-				"-o",
-				"RequestTTY=yes",
-				"-p",
-				piperport,
-				"-l",
-				"user",
-				"127.0.0.1",
-				fmt.Sprintf(`sh -c "echo SSHREADY && sleep 1 && echo -n %v > /shared/%v"`, randtext, targetfie), // sleep 1 to cover https://github.com/tg123/sshpiper/issues/323
-			)
-
-			if err != nil {
-				t.Errorf("failed to ssh to piper-fixed, %v", err)
-			}
-
-			defer killCmd(c)
-
-			enterPassword(stdin, stdout, "pass")
-
-			waitForStdoutContains(stdout, "SSHREADY", func(_ string) {
-				_, _ = stdin.Write([]byte(fmt.Sprintf("%v\n", "triggerping")))
+			runSSHTestUnified(SSHTestParams{
+				T:                t,
+				PiperPort:        piperport,
+				Username:         "user",
+				Password:         "pass",
+				PasswordRequired: true,
+				SSHBin:           tc.bin,
+				Command:          fmt.Sprintf(`sh -c "echo SSHREADY && sleep 1 && echo -n %v > /shared/%v"`, randtext, targetfie),
+				WaitFor:          "SSHREADY",
+				StdinTrigger:     "triggerping",
+				ExpectSuccess:    true,
+				CheckFile:        true,
+				ExpectedText:     randtext,
+				TargetFile:       targetfie,
 			})
-
-			time.Sleep(time.Second * 3) // wait for file flush
-
-			checkSharedFileContent(t, targetfie, randtext)
 		})
 	}
 
@@ -110,7 +92,6 @@ func TestHostkeyParam(t *testing.T) {
 		"ssh-keyscan",
 		"-p",
 		piperport,
-		"-vvv",
 		"127.0.0.1",
 	)
 

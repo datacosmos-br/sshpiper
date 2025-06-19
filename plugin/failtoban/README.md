@@ -6,12 +6,11 @@ put ip to jail for a while after failed to login for several times.
 
 put this plugin after other plugins, like:
 
-```
+```bash
 sshpiperd <main plguin> -- failtoban
 ```
 
-
 ## Configuration
 
- * max-failures: max failures before ban, default 5
- * ban-duration: ban duration, default 1h
+* max-failures: max failures before ban, default 5
+* ban-duration: ban duration, default 1h

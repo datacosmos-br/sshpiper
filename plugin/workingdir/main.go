@@ -12,7 +12,7 @@ import (
 
 func main() {
 
-	libplugin.CreateAndRunPluginTemplate(&libplugin.PluginTemplate{
+	libplugin.RunPluginEntrypoint(&libplugin.PluginEntrypoint{
 		Name:  "workingdir",
 		Usage: "sshpiperd workingdir plugin",
 		Flags: []cli.Flag{
@@ -53,7 +53,7 @@ func main() {
 				EnvVars: []string{"SSHPIPERD_WORKINGDIR_CHECKTOTP"},
 			},
 		},
-		CreateConfig: func(c *cli.Context) (*libplugin.SshPiperPluginConfig, error) {
+		CreateConfig: func(c *cli.Context) (*libplugin.PluginConfig, error) {
 
 			fac := workdingdirFactory{
 				root:             c.String("root"),
@@ -68,7 +68,7 @@ func main() {
 
 			skel := libplugin.NewSkelPlugin(fac.listPipe)
 			config := skel.CreateConfig()
-			config.NextAuthMethodsCallback = func(conn libplugin.ConnMetadata) ([]string, error) {
+			config.NextAuthMethodsCallback = func(conn libplugin.PluginConnMetadata) ([]string, error) {
 
 				auth := []string{"publickey"}
 
@@ -86,7 +86,7 @@ func main() {
 				return auth, nil
 			}
 
-			config.KeyboardInteractiveCallback = func(conn libplugin.ConnMetadata, client libplugin.KeyboardInteractiveChallenge) (*libplugin.Upstream, error) {
+			config.KeyboardInteractiveCallback = func(conn libplugin.PluginConnMetadata, client libplugin.KeyboardInteractiveChallenge) (*libplugin.Upstream, error) {
 				user := conn.User()
 
 				if !fac.allowBadUsername {
@@ -114,7 +114,7 @@ func main() {
 
 					if totp.Validate(passcode, strings.TrimSpace(string(secret))) {
 						return &libplugin.Upstream{
-							Auth: libplugin.CreateRetryCurrentPluginAuth(map[string]string{
+							Auth: libplugin.AuthRetryCurrentPluginCreate(map[string]string{
 								"totp": "checked",
 							}),
 						}, nil

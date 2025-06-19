@@ -12,12 +12,12 @@ import (
 
 func main() {
 
-	libplugin.CreateAndRunPluginTemplate(&libplugin.PluginTemplate{
+	libplugin.RunPluginEntrypoint(&libplugin.PluginEntrypoint{
 		Name:  "simplemath",
 		Usage: "sshpiperd simplemath plugin, do math before ssh login",
-		CreateConfig: func(_ *cli.Context) (*libplugin.SshPiperPluginConfig, error) {
-			return &libplugin.SshPiperPluginConfig{
-				KeyboardInteractiveCallback: func(conn libplugin.ConnMetadata, client libplugin.KeyboardInteractiveChallenge) (*libplugin.Upstream, error) {
+		CreateConfig: func(_ *cli.Context) (*libplugin.PluginConfig, error) {
+			return &libplugin.PluginConfig{
+				KeyboardInteractiveCallback: func(conn libplugin.PluginConnMetadata, client libplugin.KeyboardInteractiveChallenge) (*libplugin.Upstream, error) {
 					_, _ = client("", "lets do math", "", false)
 
 					for {
@@ -37,7 +37,7 @@ func main() {
 							log.Printf("got ans = %v", ans)
 
 							return &libplugin.Upstream{
-								Auth: libplugin.CreateNextPluginAuth(map[string]string{
+								Auth: libplugin.AuthNextPluginCreate(map[string]string{
 									"a":   strconv.Itoa(a),
 									"b":   strconv.Itoa(b),
 									"ans": ans,

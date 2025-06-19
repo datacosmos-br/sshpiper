@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	libplugin.CreateAndRunPluginTemplate(&libplugin.PluginTemplate{
+	libplugin.RunPluginEntrypoint(&libplugin.PluginEntrypoint{
 		Name:  "kubernetes",
 		Usage: "sshpiperd kubernetes plugin",
 		Flags: []cli.Flag{
@@ -23,7 +23,7 @@ func main() {
 				Required: false,
 			},
 		},
-		CreateConfig: func(c *cli.Context) (*libplugin.SshPiperPluginConfig, error) {
+		CreateConfig: func(c *cli.Context) (*libplugin.PluginConfig, error) {
 			plugin, err := newKubernetesPlugin(c.Bool("all-namespaces"), c.String("kubeconfig"))
 			if err != nil {
 				return nil, err

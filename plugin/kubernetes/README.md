@@ -34,7 +34,7 @@ A full sample can be found [here](sample.yaml)
 
 #### Create Service
 
-```
+```yaml
 # sshpiper service
 ---
 apiVersion: v1
@@ -150,10 +150,9 @@ spec:
 
 #### Create Public Key Pipe
 
-`ssh piper_ip -i <key in authorized_keys_data> ` will pipe to `user@host-publickey` and login with secret `host-publickey-key`
+`ssh piper_ip -i <key in authorized_keys_data>` will pipe to `user@host-publickey` and login with secret `host-publickey-key`
 
-
-```
+```yaml
 apiVersion: v1
 data:
   ssh-privatekey: |
@@ -179,4 +178,3 @@ spec:
       name: host-publickey-key
     ignore_hostkey: true
 ```
-

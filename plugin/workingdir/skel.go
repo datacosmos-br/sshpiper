@@ -20,109 +20,46 @@ type workdingdirFactory struct {
 }
 
 type skelpipeWrapper struct {
-	dir *workingdir
-
+	dir      *workingdir
 	host     string
 	username string
 }
 
-type skelpipeFromWrapper struct {
-	skelpipeWrapper
-}
-
-type skelpipePasswordWrapper struct {
-	skelpipeFromWrapper
-}
-
-type skelpipePublicKeyWrapper struct {
-	skelpipeFromWrapper
-}
-
-type skelpipeToWrapper struct {
-	skelpipeWrapper
-}
-
-type skelpipeToPasswordWrapper struct {
-	skelpipeToWrapper
-}
-
-type skelpipeToPrivateKeyWrapper struct {
-	skelpipeToWrapper
-}
-
 func (s *skelpipeWrapper) From() []libplugin.SkelPipeFrom {
-
-	w := skelpipeFromWrapper{
-		skelpipeWrapper: *s,
+	fromSpecs := []interface{}{s}
+	matchConnFn := func(from interface{}, conn libplugin.PluginConnMetadata) (libplugin.SkelPipeTo, error) {
+		w := from.(*skelpipeWrapper)
+		var to libplugin.SkelPipeToWrapper
+		if w.dir.Exists(userKeyFile) {
+			knownHostsFn := func(conn libplugin.PluginConnMetadata) ([]byte, error) {
+				return w.dir.Readfile(userKnownHosts)
+			}
+			to = libplugin.NewSkelPipeToWrapper(w.dir, nil, w.username, w.host, !w.dir.Strict, knownHostsFn)
+			return &to, nil
+		}
+		to = libplugin.NewSkelPipeToWrapper(w.dir, nil, w.username, w.host, !w.dir.Strict, nil)
+		return &to, nil
 	}
-
-	if s.dir.Exists(userAuthorizedKeysFile) && s.dir.Exists(userKeyFile) {
-		return []libplugin.SkelPipeFrom{&skelpipePublicKeyWrapper{
-			skelpipeFromWrapper: w,
-		}}
-	} else {
-		return []libplugin.SkelPipeFrom{&skelpipePasswordWrapper{
-			skelpipeFromWrapper: w,
-		}}
-	}
+	return libplugin.FromGeneric(s.dir, s, fromSpecs, matchConnFn, nil)
 }
 
-func (s *skelpipeToWrapper) User(conn libplugin.ConnMetadata) string {
+func (s *skelpipeWrapper) User(conn libplugin.PluginConnMetadata) string {
 	return s.username
 }
 
-func (s *skelpipeToWrapper) Host(conn libplugin.ConnMetadata) string {
+func (s *skelpipeWrapper) Host(conn libplugin.PluginConnMetadata) string {
 	return s.host
 }
 
-func (s *skelpipeToWrapper) IgnoreHostKey(conn libplugin.ConnMetadata) bool {
+func (s *skelpipeWrapper) IgnoreHostKey(conn libplugin.PluginConnMetadata) bool {
 	return !s.dir.Strict
 }
 
-func (s *skelpipeToWrapper) KnownHosts(conn libplugin.ConnMetadata) ([]byte, error) {
+func (s *skelpipeWrapper) KnownHosts(conn libplugin.PluginConnMetadata) ([]byte, error) {
 	return s.dir.Readfile(userKnownHosts)
 }
 
-func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (libplugin.SkelPipeTo, error) {
-
-	if s.dir.Exists(userKeyFile) {
-		return &skelpipeToPrivateKeyWrapper{
-			skelpipeToWrapper: skelpipeToWrapper(*s),
-		}, nil
-	}
-
-	return &skelpipeToPasswordWrapper{
-		skelpipeToWrapper: skelpipeToWrapper(*s),
-	}, nil
-}
-
-func (s *skelpipePasswordWrapper) TestPassword(conn libplugin.ConnMetadata, password []byte) (bool, error) {
-	return true, nil // TODO support later
-}
-
-func (s *skelpipePublicKeyWrapper) AuthorizedKeys(conn libplugin.ConnMetadata) ([]byte, error) {
-	return s.dir.Readfile(userAuthorizedKeysFile)
-}
-
-func (s *skelpipePublicKeyWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata) ([]byte, error) {
-	return nil, nil // TODO support this
-}
-
-func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([]byte, []byte, error) {
-	k, err := s.dir.Readfile(userKeyFile)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return k, nil, nil
-}
-
-func (s *skelpipeToPasswordWrapper) OverridePassword(conn libplugin.ConnMetadata) ([]byte, error) {
-	return nil, nil
-}
-
-func (wf *workdingdirFactory) listPipe(conn libplugin.ConnMetadata) ([]libplugin.SkelPipe, error) {
-
+func (wf *workdingdirFactory) listPipe(conn libplugin.PluginConnMetadata) ([]libplugin.SkelPipe, error) {
 	user := conn.User()
 
 	if !wf.allowBadUsername {

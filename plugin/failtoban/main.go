@@ -6,21 +6,17 @@ import (
 	"net/netip"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
-	"go4.org/netipx"
-
-	gocache "github.com/patrickmn/go-cache"
 	log "github.com/sirupsen/logrus"
 	"github.com/tg123/sshpiper/libplugin"
 	"github.com/urfave/cli/v2"
 )
 
 func main() {
-
-	libplugin.CreateAndRunPluginTemplate(&libplugin.PluginTemplate{
+	// Run the failtoban plugin entrypoint.
+	libplugin.RunPluginEntrypoint(&libplugin.PluginEntrypoint{
 		Name:  "failtoban",
 		Usage: "failtoban plugin, block ip after too many auth failures",
 		Flags: []cli.Flag{
@@ -49,112 +45,72 @@ func main() {
 				Value:   cli.NewStringSlice(),
 			},
 		},
-		CreateConfig: func(c *cli.Context) (*libplugin.SshPiperPluginConfig, error) {
-
+		CreateConfig: func(c *cli.Context) (*libplugin.PluginConfig, error) {
 			maxFailures := c.Int("max-failures")
 			banDuration := c.Duration("ban-duration")
 			logOnly := c.Bool("log-only")
 			ignoreIP := c.StringSlice("ignore-ip")
-			cache := gocache.New(banDuration, banDuration/2*3)
-			whitelist := buildIPSet(ignoreIP)
 
-			// register signal handler
+			banCache := libplugin.NewBanCache(maxFailures, banDuration)
+			whitelist := libplugin.BuildIPSet(ignoreIP)
+
+			// register signal handler for cache flush
 			go func() {
 				sigChan := make(chan os.Signal, 1)
 				signal.Notify(sigChan, syscall.SIGHUP)
-
-				for {
-					<-sigChan
-					cache.Flush()
+				for range sigChan {
+					banCache.Flush()
 					log.Info("failtoban: cache reset due to SIGHUP")
 				}
 			}()
 
-			return &libplugin.SshPiperPluginConfig{
-				NoClientAuthCallback: func(conn libplugin.ConnMetadata) (*libplugin.Upstream, error) {
+			return &libplugin.PluginConfig{
+				NoClientAuthCallback: func(conn libplugin.PluginConnMetadata) (*libplugin.Upstream, error) {
 					// in case someone put the failtoban plugin before other plugins
 					return &libplugin.Upstream{
-						Auth: libplugin.CreateNextPluginAuth(map[string]string{}),
+						Auth: libplugin.AuthNextPluginCreate(map[string]string{}),
 					}, nil
 				},
-				NewConnectionCallback: func(conn libplugin.ConnMetadata) error {
+				NewConnectionCallback: func(conn libplugin.PluginConnMetadata) error {
 					if logOnly {
 						return nil
 					}
-
 					ip, _, _ := net.SplitHostPort(conn.RemoteAddr())
 					ip0, _ := netip.ParseAddr(ip)
-
-					if whitelist.Contains(ip0) {
+					if whitelist != nil && whitelist.Contains(ip0) {
 						log.Debugf("failtoban: %v in whitelist, ignored.", ip0)
 						return nil
 					}
-
-					failed, found := cache.Get(ip)
-					if !found {
-						// init
-						return cache.Add(ip, 0, banDuration)
+					banned, err := banCache.CheckAndAdd(ip)
+					if err != nil {
+						return err
 					}
-
-					if failed.(int) >= maxFailures {
-						return fmt.Errorf("failtoban: ip %v too auth many failures", ip)
+					if banned {
+						return fmt.Errorf("failtoban: ip %v too many auth failures", ip)
 					}
-
 					return nil
 				},
-				UpstreamAuthFailureCallback: func(conn libplugin.ConnMetadata, method string, err error, allowmethods []string) {
+				UpstreamAuthFailureCallback: func(conn libplugin.PluginConnMetadata, method string, err error, allowmethods []string) {
 					ip, _, _ := net.SplitHostPort(conn.RemoteAddr())
 					ip0, _ := netip.ParseAddr(ip)
-
-					if whitelist.Contains(ip0) {
+					if whitelist != nil && whitelist.Contains(ip0) {
 						log.Debugf("failtoban: %v in whitelist, ignored.", ip0)
 						return
 					}
-
-					failed, _ := cache.IncrementInt(ip, 1)
+					failed := banCache.Increment(ip)
 					log.Warnf("failtoban: %v auth failed. current status: fail %v times, max allowed %v", ip, failed, maxFailures)
 				},
 				PipeCreateErrorCallback: func(remoteAddr string, err error) {
 					ip, _, _ := net.SplitHostPort(remoteAddr)
 					ip0, _ := netip.ParseAddr(ip)
-
-					if whitelist.Contains(ip0) {
+					if whitelist != nil && whitelist.Contains(ip0) {
 						log.Debugf("failtoban: %v in whitelist, ignored.", ip0)
 						return
 					}
-
-					failed, _ := cache.IncrementInt(ip, 1)
+					failed := banCache.Increment(ip)
 					log.Warnf("failtoban: %v pipe create failed, reason %v. current status: fail %v times, max allowed %v", ip, err, failed, maxFailures)
 				},
 			}, nil
 		},
 	})
-}
-
-func buildIPSet(cidrs []string) *netipx.IPSet {
-
-	var ipsetBuilder netipx.IPSetBuilder
-
-	for _, cidr := range cidrs {
-		if strings.Contains(cidr, "/") {
-			prefix, err := netip.ParsePrefix(cidr)
-			if err != nil {
-				log.Debugf("failtoban: error while parsing ignore IP: \n%v", err)
-				continue
-			}
-			ipsetBuilder.AddPrefix(prefix)
-		} else {
-			ip, err := netip.ParseAddr(cidr)
-			if err != nil {
-				log.Debugf("failtoban: error while parsing ignore IP: \n%v", err)
-				continue
-			}
-			ipsetBuilder.Add(ip)
-		}
-	}
-	ipset, err := ipsetBuilder.IPSet()
-	if err != nil {
-		log.Debugf("failtoban: error while getting IPSet: \n%v", err)
-	}
-	return ipset
 }

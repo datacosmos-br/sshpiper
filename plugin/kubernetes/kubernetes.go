@@ -8,13 +8,12 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
-	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
 type plugin struct {
-	k8sclient corev1.CoreV1Interface
+	k8sclient kubernetes.Interface
 	lister    piperlister.PipeLister
 	stop      chan<- struct{}
 }
@@ -59,7 +58,7 @@ func newKubernetesPlugin(allNamespaces bool, kubeConfigPath string) (*plugin, er
 	go reflector.Run(stop)
 
 	return &plugin{
-		k8sclient: k8sclient.CoreV1(),
+		k8sclient: k8sclient,
 		lister:    lister,
 		stop:      stop,
 	}, nil
@@ -69,6 +68,14 @@ func (p *plugin) Stop() {
 	p.stop <- struct{}{}
 }
 
-func (p *plugin) list() ([]*piperv1beta1.Pipe, error) {
-	return p.lister.List(labels.Everything())
+func (p *plugin) list() ([]interface{}, error) {
+	pipes, err := p.lister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+	out := make([]interface{}, len(pipes))
+	for i, pipe := range pipes {
+		out[i] = pipe
+	}
+	return out, nil
 }

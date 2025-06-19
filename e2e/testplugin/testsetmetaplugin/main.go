@@ -9,7 +9,7 @@ import (
 
 func main() {
 
-	libplugin.CreateAndRunPluginTemplate(&libplugin.PluginTemplate{
+	libplugin.RunPluginEntrypoint(&libplugin.PluginEntrypoint{
 		Name: "setmeta",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
@@ -17,13 +17,13 @@ func main() {
 				Required: true,
 			},
 		},
-		CreateConfig: func(ctx *cli.Context) (*libplugin.SshPiperPluginConfig, error) {
-			return &libplugin.SshPiperPluginConfig{
+		CreateConfig: func(ctx *cli.Context) (*libplugin.PluginConfig, error) {
+			return &libplugin.PluginConfig{
 
-				NoClientAuthCallback: func(conn libplugin.ConnMetadata) (*libplugin.Upstream, error) {
+				NoClientAuthCallback: func(conn libplugin.PluginConnMetadata) (*libplugin.Upstream, error) {
 
 					return &libplugin.Upstream{
-						Auth: libplugin.CreateNextPluginAuth(map[string]string{
+						Auth: libplugin.AuthNextPluginCreate(map[string]string{
 							"targetaddr": ctx.String("targetaddr"),
 						}),
 					}, nil

@@ -27,6 +27,11 @@ type GrpcPluginConfig struct {
 	PipeErrorCallback       func(conn ssh.ConnMetadata, challengeCtx ssh.ChallengeContext, err error)
 }
 
+// ClearHostKeys removes all host keys from the config.
+func (g *GrpcPluginConfig) ClearHostKeys() {
+	g.PiperConfig.ClearHostKeys()
+}
+
 type GrpcPlugin struct {
 	Name         string
 	OnNextPlugin func(conn ssh.ChallengeContext, upstream *libplugin.UpstreamNextPluginAuth) error
@@ -214,7 +219,7 @@ func (g *GrpcPlugin) NextAuthMethodsRemote(conn ssh.ConnMetadata, challengeCtx s
 	var methods []string
 
 	for _, method := range reply.Methods {
-		m := libplugin.AuthMethodTypeToName(method)
+		m := libplugin.AuthMethodName(method)
 		if m == "" {
 			continue
 		}
@@ -346,7 +351,7 @@ func (g *GrpcPlugin) createUpstream(conn ssh.ConnMetadata, challengeCtx ssh.Chal
 
 			caCertificate, ok := caPublicKey.(*ssh.Certificate)
 			if !ok {
-				return nil, fmt.Errorf("Failed to convert the caPublicKey to an ssh.Certificate")
+				return nil, fmt.Errorf("failed to convert the caPublicKey to an ssh.Certificate")
 			}
 
 			private, err = ssh.NewCertSigner(caCertificate, private)
@@ -552,7 +557,9 @@ func (g *GrpcPlugin) RecvLogs(writer io.Writer) error {
 			return err
 		}
 
-		fmt.Fprintln(writer, line.GetMessage())
+		if _, err := fmt.Fprintln(writer, line.GetMessage()); err != nil {
+			return err
+		}
 	}
 }
 

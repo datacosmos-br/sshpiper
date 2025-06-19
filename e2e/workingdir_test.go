@@ -6,7 +6,6 @@ import (
 	"os"
 	"path"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -56,17 +55,7 @@ func TestWorkingDirectory(t *testing.T) {
 		}
 
 		{
-			b, err := runAndGetStdout(
-				"ssh-keyscan",
-				"-p",
-				"2222",
-				"host-password",
-			)
-
-			if err != nil {
-				t.Errorf("failed to run ssh-keyscan: %v", err)
-			}
-
+			b := mustKeyScan(t, "2222", "host-password")
 			if err := os.WriteFile(path.Join(userdir, "known_hosts"), b, 0400); err != nil {
 				t.Errorf("failed to write known_hosts: %v", err)
 			}
@@ -76,32 +65,18 @@ func TestWorkingDirectory(t *testing.T) {
 			randtext := uuid.New().String()
 			targetfie := uuid.New().String()
 
-			c, stdin, stdout, err := runCmd(
-				"ssh",
-				"-v",
-				"-o",
-				"StrictHostKeyChecking=no",
-				"-o",
-				"UserKnownHostsFile=/dev/null",
-				"-p",
-				piperport,
-				"-l",
-				"bypassword",
-				"127.0.0.1",
-				fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
-			)
-
-			if err != nil {
-				t.Errorf("failed to ssh to piper-workingdir, %v", err)
-			}
-
-			defer killCmd(c)
-
-			enterPassword(stdin, stdout, "pass")
-
-			time.Sleep(time.Second) // wait for file flush
-
-			checkSharedFileContent(t, targetfie, randtext)
+			runSSHTestUnified(SSHTestParams{
+				T:                t,
+				PiperPort:        piperport,
+				Username:         "bypassword",
+				Password:         "pass",
+				PasswordRequired: true,
+				Command:          fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
+				ExpectSuccess:    true,
+				CheckFile:        true,
+				ExpectedText:     randtext,
+				TargetFile:       targetfie,
+			})
 		}
 	})
 
@@ -116,43 +91,16 @@ func TestWorkingDirectory(t *testing.T) {
 		}
 
 		{
-			b, err := runAndGetStdout(
-				"ssh-keyscan",
-				"-p",
-				"2222",
-				"host-publickey",
-			)
-
-			if err != nil {
-				t.Errorf("failed to run ssh-keyscan: %v", err)
-			}
-
+			b := mustKeyScan(t, "2222", "host-publickey")
 			if err := os.WriteFile(path.Join(userdir, "known_hosts"), b, 0400); err != nil {
 				t.Errorf("failed to write known_hosts: %v", err)
 			}
 		}
 
-		keydir, err := os.MkdirTemp("", "")
-		// generate a local key
-		if err != nil {
-			t.Errorf("failed to create temp dir: %v", err)
-		}
+		keydir := mustMkdirTemp(t, "", "")
 
 		{
-
-			if err := runCmdAndWait("rm", "-f", path.Join(keydir, "id_rsa")); err != nil {
-				t.Errorf("failed to remove id_rsa: %v", err)
-			}
-
-			if err := runCmdAndWait(
-				"ssh-keygen",
-				"-N",
-				"",
-				"-f",
-				path.Join(keydir, "id_rsa"),
-			); err != nil {
-				t.Errorf("failed to generate private key: %v", err)
-			}
+			mustGenKey(t, path.Join(keydir, "id_rsa"))
 
 			if err := runCmdAndWait(
 				"/bin/cp",
@@ -171,19 +119,7 @@ func TestWorkingDirectory(t *testing.T) {
 			}
 
 			// set upstream key
-			if err := runCmdAndWait("rm", "-f", path.Join(userdir, "id_rsa")); err != nil {
-				t.Errorf("failed to remove id_rsa: %v", err)
-			}
-
-			if err := runCmdAndWait(
-				"ssh-keygen",
-				"-N",
-				"",
-				"-f",
-				path.Join(userdir, "id_rsa"),
-			); err != nil {
-				t.Errorf("failed to generate private key: %v", err)
-			}
+			mustGenKey(t, path.Join(userdir, "id_rsa"))
 
 			if err := runCmdAndWait(
 				"/bin/cp",
@@ -198,33 +134,17 @@ func TestWorkingDirectory(t *testing.T) {
 			randtext := uuid.New().String()
 			targetfie := uuid.New().String()
 
-			c, _, _, err := runCmd(
-				"ssh",
-				"-v",
-				"-o",
-				"StrictHostKeyChecking=no",
-				"-o",
-				"UserKnownHostsFile=/dev/null",
-				"-p",
-				piperport,
-				"-l",
-				"bypublickey",
-				"-i",
-				path.Join(keydir, "id_rsa"),
-				"127.0.0.1",
-				fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
-			)
-
-			if err != nil {
-				t.Errorf("failed to ssh to piper-workingdir, %v", err)
-			}
-
-			defer killCmd(c)
-
-			time.Sleep(time.Second) // wait for file flush
-
-			checkSharedFileContent(t, targetfie, randtext)
+			runSSHTestUnified(SSHTestParams{
+				T:             t,
+				PiperPort:     piperport,
+				Username:      "bypublickey",
+				KeyPath:       path.Join(keydir, "id_rsa"),
+				Command:       fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
+				ExpectSuccess: true,
+				CheckFile:     true,
+				ExpectedText:  randtext,
+				TargetFile:    targetfie,
+			})
 		}
-
 	})
 }

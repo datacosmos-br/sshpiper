@@ -44,51 +44,29 @@ func TestKubernetes(t *testing.T) {
 
 	for _, testcase := range pubkeycases {
 		t.Run(testcase.title, func(t *testing.T) {
-
-			keyfiledir, err := os.MkdirTemp("", "")
-			if err != nil {
-				t.Errorf("failed to create temp key file: %v", err)
-			}
-
+			keyfiledir := mustMkdirTemp(t, "", "")
 			keyfile := path.Join(keyfiledir, "key")
-
 			if err := os.WriteFile(keyfile, []byte(testprivatekey), 0400); err != nil {
 				t.Errorf("failed to write to test key: %v", err)
 			}
-
 			if err := os.WriteFile("/publickey_authorized_keys/authorized_keys", []byte(`ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINRGTH325rDUp12tplwukHmR8ytbC9TPZ886gCstynP1`), 0400); err != nil {
 				t.Errorf("failed to write to authorized_keys: %v", err)
 			}
-
 			randtext := uuid.New().String()
 			targetfie := uuid.New().String()
-
-			c, _, _, err := runCmd(
-				"ssh",
-				"-v",
-				"-o",
-				"StrictHostKeyChecking=no",
-				"-o",
-				"UserKnownHostsFile=/dev/null",
-				"-p",
-				piperport,
-				"-l",
-				testcase.user,
-				"-i",
-				keyfile,
-				piperhost,
-				fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
-			)
-
-			if err != nil {
-				t.Errorf("failed to ssh to piper-fixed, %v", err)
-			}
-
-			defer killCmd(c)
-
-			time.Sleep(time.Second) // wait for file flush
-
-			checkSharedFileContent(t, targetfie, randtext)
+			runSSHTestUnified(SSHTestParams{
+				T:                t,
+				PiperPort:        piperport,
+				Username:         testcase.user,
+				Host:             piperhost,
+				KeyPath:          keyfile,
+				Command:          fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
+				ExpectSuccess:    true,
+				CheckFile:        true,
+				ExpectedText:     randtext,
+				TargetFile:       targetfie,
+				PasswordRequired: false,
+			})
 		})
 	}
 
@@ -115,92 +93,44 @@ func TestKubernetes(t *testing.T) {
 	}
 
 	for _, testcase := range passwordcases {
-
 		t.Run(testcase.title, func(t *testing.T) {
 			randtext := uuid.New().String()
 			targetfie := uuid.New().String()
-
-			c, stdin, stdout, err := runCmd(
-				"ssh",
-				"-v",
-				"-o",
-				"StrictHostKeyChecking=no",
-				"-o",
-				"UserKnownHostsFile=/dev/null",
-				"-p",
-				piperport,
-				"-l",
-				testcase.user,
-				piperhost,
-				fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
-			)
-
-			if err != nil {
-				t.Errorf("failed to ssh to piper-fixed, %v", err)
-			}
-
-			defer killCmd(c)
-
-			enterPassword(stdin, stdout, testcase.password)
-
-			time.Sleep(time.Second) // wait for file flush
-
-			checkSharedFileContent(t, targetfie, randtext)
-		})
-
-	}
-
-	{
-		// fallback to password
-		t.Run("fallback to password", func(t *testing.T) {
-			randtext := uuid.New().String()
-			targetfie := uuid.New().String()
-
-			keyfiledir, err := os.MkdirTemp("", "")
-			if err != nil {
-				t.Errorf("failed to create temp key file: %v", err)
-			}
-
-			keyfile := path.Join(keyfiledir, "key")
-
-			if err := runCmdAndWait(
-				"ssh-keygen",
-				"-N",
-				"",
-				"-f",
-				keyfile,
-			); err != nil {
-				t.Errorf("failed to generate key: %v", err)
-			}
-
-			c, stdin, stdout, err := runCmd(
-				"ssh",
-				"-v",
-				"-o",
-				"StrictHostKeyChecking=no",
-				"-o",
-				"UserKnownHostsFile=/dev/null",
-				"-p",
-				piperport,
-				"-l",
-				"pass",
-				"-i",
-				keyfile,
-				piperhost,
-				fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
-			)
-
-			if err != nil {
-				t.Errorf("failed to ssh to piper-fixed, %v", err)
-			}
-
-			defer killCmd(c)
-
-			enterPassword(stdin, stdout, "pass")
-
-			time.Sleep(time.Second) // wait for file flush
-
-			checkSharedFileContent(t, targetfie, randtext)
+			runSSHTestUnified(SSHTestParams{
+				T:                t,
+				PiperPort:        piperport,
+				Username:         testcase.user,
+				Host:             piperhost,
+				Command:          fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
+				Password:         testcase.password,
+				PasswordRequired: true,
+				ExpectSuccess:    true,
+				CheckFile:        true,
+				ExpectedText:     randtext,
+				TargetFile:       targetfie,
+			})
 		})
 	}
+
+	t.Run("fallback to password", func(t *testing.T) {
+		randtext := uuid.New().String()
+		targetfie := uuid.New().String()
+		keyfiledir := mustMkdirTemp(t, "", "")
+		keyfile := path.Join(keyfiledir, "key")
+		mustGenKey(t, keyfile)
+		runSSHTestUnified(SSHTestParams{
+			T:                t,
+			PiperPort:        piperport,
+			Username:         "pass",
+			Host:             piperhost,
+			KeyPath:          keyfile,
+			Command:          fmt.Sprintf(`sh -c "echo -n %v > /shared/%v"`, randtext, targetfie),
+			Password:         "pass",
+			PasswordRequired: true,
+			ExpectSuccess:    true,
+			CheckFile:        true,
+			ExpectedText:     randtext,
+			TargetFile:       targetfie,
+		})
+	})
 }

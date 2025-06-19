@@ -47,7 +47,7 @@ const (
 )
 
 func main() {
-	libplugin.CreateAndRunPluginTemplate(&libplugin.PluginTemplate{
+	libplugin.RunPluginEntrypoint(&libplugin.PluginEntrypoint{
 		Name:  "remote call",
 		Usage: "sshpiperd remote plugin",
 		Flags: []cli.Flag{
@@ -99,27 +99,27 @@ func main() {
 				EnvVars: []string{"SSHPIPERD_MAPPING_KEY_PATH"},
 			},
 		},
-		CreateConfig: func(c *cli.Context) (*libplugin.SshPiperPluginConfig, error) {
+		CreateConfig: func(c *cli.Context) (*libplugin.PluginConfig, error) {
 			return createConfig(c)
 		},
 	})
 }
 
-func createConfig(c *cli.Context) (*libplugin.SshPiperPluginConfig, error) {
+func createConfig(c *cli.Context) (*libplugin.PluginConfig, error) {
 	caller, err := createRemoteCaller(c)
 	if err != nil {
 		return nil, fmt.Errorf("error creating remote caller: %w", err)
 	}
 
-	return &libplugin.SshPiperPluginConfig{
-		PublicKeyCallbackNew: func(conn libplugin.ConnMetadata, key []byte, keytype string) (*libplugin.Upstream, error) {
+	return &libplugin.PluginConfig{
+		PublicKeyCallbackNew: func(conn libplugin.PluginConnMetadata, key []byte, keytype string) (*libplugin.Upstream, error) {
 			return getPublicKeyCallback(conn, key, keytype, caller)
 		},
 	}, nil
 }
 
 func getPublicKeyCallback(
-	conn libplugin.ConnMetadata,
+	conn libplugin.PluginConnMetadata,
 	key []byte,
 	keytype string,
 	caller *RemoteCall,
@@ -170,7 +170,7 @@ func getPublicKeyCallback(
 		Host:          host,
 		Port:          int32(port),
 		UserName:      generateUpstreamUserName(authResponse),
-		Auth:          libplugin.CreatePrivateKeyAuth(k),
+		Auth:          libplugin.AuthPrivateKeyCreate(k),
 		IgnoreHostKey: true,
 	}
 	log.Debugf("final data: %v", &v)
