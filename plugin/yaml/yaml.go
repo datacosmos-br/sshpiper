@@ -22,6 +22,7 @@ func (f yamlPipeFrom) SupportPublicKey() bool {
 }
 
 type yamlPipeTo struct {
+<<<<<<< HEAD
 	Username       string                 `yaml:"username,omitempty"`
 	Host           string                 `yaml:"host"`
 	Password       string                 `yaml:"password,omitempty"`
@@ -31,6 +32,48 @@ type yamlPipeTo struct {
 	KnownHostsData libplugin.ListOrString `yaml:"known_hosts_data,omitempty"`
 	IgnoreHostkey  bool                   `yaml:"ignore_hostkey,omitempty"`
 	VaultKVPath    string                 `yaml:"vault_kv_path,omitempty"`
+=======
+	Username       string       `yaml:"username,omitempty"`
+	Host           string       `yaml:"host"`
+	Password       string       `yaml:"password,omitempty"`
+	PrivateKey     string       `yaml:"private_key,omitempty"`
+	PrivateKeyData string       `yaml:"private_key_data,omitempty"`
+	KnownHosts     listOrString `yaml:"known_hosts,omitempty"`
+	KnownHostsData listOrString `yaml:"known_hosts_data,omitempty"`
+	IgnoreHostkey  bool         `yaml:"ignore_hostkey,omitempty"`
+}
+
+type listOrString struct {
+	List []string
+	Str  string
+}
+
+func (l *listOrString) Any() bool {
+	return len(l.List) > 0 || l.Str != ""
+}
+
+func (l *listOrString) Combine() []string {
+	if l.Str != "" {
+		return append(l.List, l.Str)
+	}
+	return l.List
+}
+
+func (l *listOrString) UnmarshalYAML(value *yaml.Node) error {
+	// Try to unmarshal as a list
+	var list []string
+	if err := value.Decode(&list); err == nil {
+		l.List = list
+		return nil
+	}
+	// Try to unmarshal as a string
+	var str string
+	if err := value.Decode(&str); err == nil {
+		l.Str = str
+		return nil
+	}
+	return fmt.Errorf("failed to unmarshal OneOfType")
+>>>>>>> upstream/master
 }
 
 type yamlPipe struct {

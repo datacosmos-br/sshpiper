@@ -2,7 +2,12 @@ package main
 
 import (
 	"github.com/tg123/sshpiper/libplugin"
+<<<<<<< HEAD
 	cli "github.com/urfave/cli/v2"
+=======
+	"github.com/tg123/sshpiper/libplugin/skel"
+	"github.com/urfave/cli/v2"
+>>>>>>> upstream/master
 )
 
 func main() {
@@ -26,8 +31,13 @@ func main() {
 				Destination: &plugin.NoCheckPerm,
 			},
 		},
+<<<<<<< HEAD
 		CreateConfig: func(c *cli.Context) (*libplugin.PluginConfig, error) {
 			skel := libplugin.NewSkelPlugin(plugin.listPipe)
+=======
+		CreateConfig: func(c *cli.Context) (*libplugin.SshPiperPluginConfig, error) {
+			skel := skel.NewSkelPlugin(plugin.listPipe)
+>>>>>>> upstream/master
 			return skel.CreateConfig(), nil
 		},
 	})

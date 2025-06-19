@@ -61,7 +61,7 @@ func (g *GrpcPlugin) InstallPiperConfig(config *GrpcPluginConfig) error {
 		return err
 	}
 
-	config.CreateChallengeContext = func(conn ssh.ConnMetadata) (ssh.ChallengeContext, error) {
+	config.CreateChallengeContext = func(conn ssh.ServerPreAuthConn) (ssh.ChallengeContext, error) {
 		ctx, err := g.CreateChallengeContext(conn)
 		if err != nil {
 			log.Errorf("cannot create challenge context %v", err)
@@ -126,7 +126,7 @@ func (g *GrpcPlugin) InstallPiperConfig(config *GrpcPluginConfig) error {
 				g.UpstreamAuthFailureCallbackRemote(conn, method, err, challengeCtx)
 			}
 		case "Banner":
-			config.BannerCallback = g.BannerCallback
+			config.DownstreamBannerCallback = g.DownstreamBannerCallback
 		case "VerifyHostKey":
 			// ignore
 		case "PipeStart":
@@ -148,25 +148,25 @@ func (g *GrpcPlugin) CreatePiperConfig() (*GrpcPluginConfig, error) {
 	return config, g.InstallPiperConfig(config)
 }
 
-type connMeta libplugin.ConnMeta
+type PluginConnMeta libplugin.ConnMeta
 
 // ChallengedUsername implements ssh.ChallengeContext
-func (m *connMeta) ChallengedUsername() string {
+func (m *PluginConnMeta) ChallengedUsername() string {
 	return m.UserName
 }
 
 // Meta implements ssh.ChallengeContext
-func (m *connMeta) Meta() interface{} {
+func (m *PluginConnMeta) Meta() interface{} {
 	return m
 }
 
-func (g *GrpcPlugin) CreateChallengeContext(conn ssh.ConnMetadata) (ssh.ChallengeContext, error) {
+func (g *GrpcPlugin) CreateChallengeContext(conn ssh.ServerPreAuthConn) (ssh.ChallengeContext, error) {
 	uiq, err := uuid.NewRandom()
 	if err != nil {
 		return nil, err
 	}
 
-	meta := connMeta{
+	meta := PluginConnMeta{
 		UserName: conn.User(),
 		FromAddr: conn.RemoteAddr().String(),
 		UniqId:   uiq.String(),
@@ -176,7 +176,7 @@ func (g *GrpcPlugin) CreateChallengeContext(conn ssh.ConnMetadata) (ssh.Challeng
 	return &meta, g.NewConnection(&meta)
 }
 
-func (g *GrpcPlugin) NewConnection(meta *connMeta) error {
+func (g *GrpcPlugin) NewConnection(meta *PluginConnMeta) error {
 	if g.hasNewConnectionCallback {
 		_, err := g.client.NewConnection(context.Background(), &libplugin.NewConnectionRequest{
 			Meta: &libplugin.ConnMeta{
@@ -195,12 +195,12 @@ func (g *GrpcPlugin) NewConnection(meta *connMeta) error {
 
 func toMeta(challengeCtx ssh.ChallengeContext, conn ssh.ConnMetadata) *libplugin.ConnMeta {
 	switch meta := challengeCtx.(type) {
-	case *connMeta:
+	case *PluginConnMeta:
 		meta.UserName = conn.User()
 		return (*libplugin.ConnMeta)(meta)
 	case *chainConnMeta:
 		meta.UserName = conn.User()
-		return (*libplugin.ConnMeta)(&meta.connMeta)
+		return (*libplugin.ConnMeta)(&meta.PluginConnMeta)
 	}
 
 	panic("unknown challenge context")
@@ -499,7 +499,7 @@ func (g *GrpcPlugin) KeyboardInteractiveCallback(conn ssh.ConnMetadata, client s
 	}
 }
 
-func (g *GrpcPlugin) BannerCallback(conn ssh.ConnMetadata, challengeCtx ssh.ChallengeContext) string {
+func (g *GrpcPlugin) DownstreamBannerCallback(conn ssh.ConnMetadata, challengeCtx ssh.ChallengeContext) string {
 	meta := toMeta(challengeCtx, conn)
 	reply, err := g.client.Banner(context.Background(), &libplugin.BannerRequest{
 		Meta: meta,
@@ -603,7 +603,7 @@ func DialCmd(cmd *exec.Cmd) (*CmdPlugin, error) {
 
 func GetUniqueID(ctx ssh.ChallengeContext) string {
 	switch meta := ctx.(type) {
-	case *connMeta:
+	case *PluginConnMeta:
 		return meta.UniqId
 	case *chainConnMeta:
 		return meta.UniqId

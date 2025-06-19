@@ -8,6 +8,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/tg123/sshpiper/libplugin"
+	"github.com/tg123/sshpiper/libplugin/skel"
 )
 
 type workdingdirFactory struct {
@@ -25,6 +26,7 @@ type skelpipeWrapper struct {
 	username string
 }
 
+<<<<<<< HEAD
 func (s *skelpipeWrapper) From() []libplugin.SkelPipeFrom {
 	fromSpecs := []interface{}{s}
 	matchConnFn := func(from interface{}, conn libplugin.PluginConnMetadata) (libplugin.SkelPipeTo, error) {
@@ -39,6 +41,45 @@ func (s *skelpipeWrapper) From() []libplugin.SkelPipeFrom {
 		}
 		to = libplugin.NewSkelPipeToWrapper(w.dir, nil, w.username, w.host, !w.dir.Strict, nil)
 		return &to, nil
+=======
+type skelpipeFromWrapper struct {
+	skelpipeWrapper
+}
+
+type skelpipePasswordWrapper struct {
+	skelpipeFromWrapper
+}
+
+type skelpipePublicKeyWrapper struct {
+	skelpipeFromWrapper
+}
+
+type skelpipeToWrapper struct {
+	skelpipeWrapper
+}
+
+type skelpipeToPasswordWrapper struct {
+	skelpipeToWrapper
+}
+
+type skelpipeToPrivateKeyWrapper struct {
+	skelpipeToWrapper
+}
+
+func (s *skelpipeWrapper) From() []skel.SkelPipeFrom {
+	w := skelpipeFromWrapper{
+		skelpipeWrapper: *s,
+	}
+
+	if s.dir.Exists(userAuthorizedKeysFile) && s.dir.Exists(userKeyFile) {
+		return []skel.SkelPipeFrom{&skelpipePublicKeyWrapper{
+			skelpipeFromWrapper: w,
+		}}
+	} else {
+		return []skel.SkelPipeFrom{&skelpipePasswordWrapper{
+			skelpipeFromWrapper: w,
+		}}
+>>>>>>> upstream/master
 	}
 	return libplugin.FromGeneric(s.dir, s, fromSpecs, matchConnFn, nil)
 }
@@ -59,7 +100,48 @@ func (s *skelpipeWrapper) KnownHosts(conn libplugin.PluginConnMetadata) ([]byte,
 	return s.dir.Readfile(userKnownHosts)
 }
 
+<<<<<<< HEAD
 func (wf *workdingdirFactory) listPipe(conn libplugin.PluginConnMetadata) ([]libplugin.SkelPipe, error) {
+=======
+func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (skel.SkelPipeTo, error) {
+	if s.dir.Exists(userKeyFile) {
+		return &skelpipeToPrivateKeyWrapper{
+			skelpipeToWrapper: skelpipeToWrapper(*s),
+		}, nil
+	}
+
+	return &skelpipeToPasswordWrapper{
+		skelpipeToWrapper: skelpipeToWrapper(*s),
+	}, nil
+}
+
+func (s *skelpipePasswordWrapper) TestPassword(conn libplugin.ConnMetadata, password []byte) (bool, error) {
+	return true, nil // TODO support later
+}
+
+func (s *skelpipePublicKeyWrapper) AuthorizedKeys(conn libplugin.ConnMetadata) ([]byte, error) {
+	return s.dir.Readfile(userAuthorizedKeysFile)
+}
+
+func (s *skelpipePublicKeyWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata) ([]byte, error) {
+	return nil, nil // TODO support this
+}
+
+func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([]byte, []byte, error) {
+	k, err := s.dir.Readfile(userKeyFile)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return k, nil, nil
+}
+
+func (s *skelpipeToPasswordWrapper) OverridePassword(conn libplugin.ConnMetadata) ([]byte, error) {
+	return nil, nil
+}
+
+func (wf *workdingdirFactory) listPipe(conn libplugin.ConnMetadata) ([]skel.SkelPipe, error) {
+>>>>>>> upstream/master
 	user := conn.User()
 
 	if !wf.allowBadUsername {
@@ -68,11 +150,10 @@ func (wf *workdingdirFactory) listPipe(conn libplugin.PluginConnMetadata) ([]lib
 		}
 	}
 
-	var pipes []libplugin.SkelPipe
+	var pipes []skel.SkelPipe
 	userdir := path.Join(wf.root, conn.User())
 
 	_ = filepath.Walk(userdir, func(path string, info os.FileInfo, err error) (stop error) {
-
 		log.Infof("search upstreams in path: %v", path)
 		if err != nil {
 			log.Infof("error walking path: %v", err)

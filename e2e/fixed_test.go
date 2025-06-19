@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestFixed(t *testing.T) {
+func TestOldSshd(t *testing.T) {
 
 	piperaddr, piperport := nextAvailablePiperAddress()
 
@@ -18,7 +18,7 @@ func TestFixed(t *testing.T) {
 		piperport,
 		"/sshpiperd/plugins/fixed",
 		"--target",
-		"host-password:2222",
+		"host-password-old:2222",
 	)
 
 	if err != nil {
@@ -46,6 +46,7 @@ func TestFixed(t *testing.T) {
 			randtext := uuid.New().String()
 			targetfie := uuid.New().String()
 
+<<<<<<< HEAD
 			runSSHTestUnified(SSHTestParams{
 				T:                t,
 				PiperPort:        piperport,
@@ -60,6 +61,35 @@ func TestFixed(t *testing.T) {
 				CheckFile:        true,
 				ExpectedText:     randtext,
 				TargetFile:       targetfie,
+=======
+			c, stdin, stdout, err := runCmd(
+				tc.bin,
+				"-v",
+				"-o",
+				"StrictHostKeyChecking=no",
+				"-o",
+				"UserKnownHostsFile=/dev/null",
+				"-o",
+				"RequestTTY=yes",
+				"-p",
+				piperport,
+				"-l",
+				"user",
+				"127.0.0.1",
+				fmt.Sprintf(`sh -c "echo SSHREADY && sleep 1 && echo -n %v > /shared/%v"`, randtext, targetfie), // sleep 5 to cover https://github.com/tg123/sshpiper/issues/323
+			)
+
+			if err != nil {
+				t.Errorf("failed to ssh to piper-fixed, %v", err)
+			}
+
+			defer killCmd(c)
+
+			enterPassword(stdin, stdout, "pass")
+
+			waitForStdoutContains(stdout, "SSHREADY", func(_ string) {
+				_, _ = fmt.Fprintf(stdin, "%v\n", "triggerping")
+>>>>>>> upstream/master
 			})
 		})
 	}

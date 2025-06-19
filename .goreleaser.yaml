@@ -13,7 +13,7 @@ builds:
     goos:
       - linux
       - windows
-      # - darwin
+      - darwin
     goarch:
       - amd64
       - arm64
@@ -39,7 +39,7 @@ builds:
     goos:
       - linux
       - windows
-      # - darwin
+      - darwin
     goarch:
       - amd64
       - arm64
@@ -53,11 +53,10 @@ builds:
     goos:
       - linux
       - windows
-      # - darwin
+      - darwin
     goarch:
       - amd64
       - arm64
-      # - darwin
     main: ./plugin/yaml
     binary: plugins/yaml
     tags:
@@ -96,7 +95,7 @@ builds:
     goos:
       - linux
       - windows
-      # - darwin
+      - darwin
     goarch:
       - amd64
       - arm64
@@ -110,12 +109,26 @@ builds:
     goos:
       - linux
       - windows
-      # - darwin
+      - darwin
     goarch:
       - amd64
       - arm64
     main: ./plugin/failtoban
     binary: plugins/failtoban
+    tags:
+      - full
+  - id: plugin_username_router
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    main: ./plugin/username-router
+    binary: plugins/username-router
     tags:
       - full
 
@@ -142,6 +155,7 @@ archives:
       - plugin_failtoban
       - plugin_docker
       - plugin_kubernetes
+      - plugin_username_router
 dockers:
   - image_templates:
       - "farmer1992/sshpiperd:v{{ .Version }}-amd64"
@@ -155,8 +169,6 @@ dockers:
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--build-arg=EXTERNAL=1"
-    extra_files:
-      - entrypoint.sh
     skip_push: "{{ .Env.SKIP_PUSH }}"
   - image_templates:
       - "farmer1992/sshpiperd:v{{ .Version }}-arm64"
@@ -171,8 +183,6 @@ dockers:
     build_flag_templates:
       - "--platform=linux/arm64"
       - "--build-arg=EXTERNAL=1"
-    extra_files:
-      - entrypoint.sh
     skip_push: "{{ .Env.SKIP_PUSH }}"
   # full
   - image_templates:
@@ -183,8 +193,6 @@ dockers:
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--build-arg=EXTERNAL=1"
-    extra_files:
-      - entrypoint.sh
     skip_push: "{{ .Env.SKIP_PUSH }}"
   - image_templates:
       - "farmer1992/sshpiperd:full-v{{ .Version }}-arm64"
@@ -195,8 +203,6 @@ dockers:
     build_flag_templates:
       - "--platform=linux/arm64"
       - "--build-arg=EXTERNAL=1"
-    extra_files:
-      - entrypoint.sh
     skip_push: "{{ .Env.SKIP_PUSH }}"
 docker_manifests:
   - name_template: "farmer1992/sshpiperd:v{{ .Version }}"
@@ -257,6 +263,7 @@ snapcrafts:
       - plugin_yaml
       - plugin_fixed
       - plugin_failtoban
+      - plugin_username_router
     name: sshpiperd
     name_template: "sshpiperd_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     summary: The missing reverse proxy for ssh scp

@@ -7,12 +7,17 @@ import (
 
 	"github.com/pquerna/otp/totp"
 	"github.com/tg123/sshpiper/libplugin"
+	"github.com/tg123/sshpiper/libplugin/skel"
 	"github.com/urfave/cli/v2"
 )
 
 func main() {
+<<<<<<< HEAD
 
 	libplugin.RunPluginEntrypoint(&libplugin.PluginEntrypoint{
+=======
+	libplugin.CreateAndRunPluginTemplate(&libplugin.PluginTemplate{
+>>>>>>> upstream/master
 		Name:  "workingdir",
 		Usage: "sshpiperd workingdir plugin",
 		Flags: []cli.Flag{
@@ -53,8 +58,12 @@ func main() {
 				EnvVars: []string{"SSHPIPERD_WORKINGDIR_CHECKTOTP"},
 			},
 		},
+<<<<<<< HEAD
 		CreateConfig: func(c *cli.Context) (*libplugin.PluginConfig, error) {
 
+=======
+		CreateConfig: func(c *cli.Context) (*libplugin.SshPiperPluginConfig, error) {
+>>>>>>> upstream/master
 			fac := workdingdirFactory{
 				root:             c.String("root"),
 				allowBadUsername: c.Bool("allow-baduser-name"),
@@ -66,10 +75,14 @@ func main() {
 
 			checktotp := c.Bool("check-totp")
 
-			skel := libplugin.NewSkelPlugin(fac.listPipe)
+			skel := skel.NewSkelPlugin(fac.listPipe)
 			config := skel.CreateConfig()
+<<<<<<< HEAD
 			config.NextAuthMethodsCallback = func(conn libplugin.PluginConnMetadata) ([]string, error) {
 
+=======
+			config.NextAuthMethodsCallback = func(conn libplugin.ConnMetadata) ([]string, error) {
+>>>>>>> upstream/master
 				auth := []string{"publickey"}
 
 				if !fac.noPasswordAuth {
@@ -80,7 +93,6 @@ func main() {
 					if conn.GetMeta("totp") != "checked" {
 						auth = []string{"keyboard-interactive"}
 					}
-
 				}
 
 				return auth, nil

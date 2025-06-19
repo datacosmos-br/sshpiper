@@ -16,12 +16,10 @@ type workingdir struct {
 	Strict      bool
 }
 
-var (
-	// Base username validation on Debians default: https://sources.debian.net/src/adduser/3.113%2Bnmu3/adduser.conf/#L85
-	// -> NAME_REGEX="^[a-z][-a-z0-9_]*\$"
-	// The length is limited to 32 characters. See man 8 useradd: https://linux.die.net/man/8/useradd
-	usernameRule *regexp.Regexp = regexp.MustCompile("^[a-z_][-a-z0-9_]{0,31}$")
-)
+// Base username validation on Debians default: https://sources.debian.net/src/adduser/3.113%2Bnmu3/adduser.conf/#L85
+// -> NAME_REGEX="^[a-z][-a-z0-9_]*\$"
+// The length is limited to 32 characters. See man 8 useradd: https://linux.die.net/man/8/useradd
+var usernameRule *regexp.Regexp = regexp.MustCompile("^[a-z_][-a-z0-9_]{0,31}$")
 
 const (
 	userAuthorizedKeysFile = "authorized_keys"
@@ -34,6 +32,33 @@ func isUsernameSecure(user string) bool {
 	return usernameRule.MatchString(user)
 }
 
+<<<<<<< HEAD
+=======
+func (w *workingdir) checkPerm(file string) error {
+	filename := path.Join(w.Path, file)
+	f, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	fi, err := f.Stat()
+	if err != nil {
+		return err
+	}
+
+	if w.NoCheckPerm {
+		return nil
+	}
+
+	if fi.Mode().Perm()&0o077 != 0 {
+		return fmt.Errorf("%v's perm is too open", filename)
+	}
+
+	return nil
+}
+
+>>>>>>> upstream/master
 func (w *workingdir) fullpath(file string) string {
 	return path.Join(w.Path, file)
 }

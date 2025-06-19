@@ -34,7 +34,11 @@ import (
 	"reflect"
 	"strconv"
 
+<<<<<<< HEAD
 	"gopkg.in/yaml.v3"
+=======
+	"github.com/sirupsen/logrus"
+>>>>>>> upstream/master
 )
 
 // SplitHostPortForSSH splits an address into host and port, defaulting to port 22 if not specified.
@@ -71,7 +75,6 @@ func SplitHostPortForSSH(addr string) (host string, port int, err error) {
 // DialForSSH dials a TCP connection to the given address, defaulting to port 22 if not specified.
 // Returns a net.Conn and error if dialing fails.
 func DialForSSH(addr string) (net.Conn, error) {
-
 	if _, _, err := net.SplitHostPort(addr); err != nil && addr != "" {
 		// test valid after concat :22
 		if _, _, err := net.SplitHostPort(addr + ":22"); err == nil {
@@ -170,6 +173,7 @@ func LoadFileOrBase64Many(files ListOrString, base64data ListOrString, vars map[
 	return bytes.Join(byteSlices, []byte("\n")), nil
 }
 
+<<<<<<< HEAD
 // CheckFilePerm checks that the file at filename has permissions 0400 (no group/other read/write/exec).
 // Returns an error if permissions are too open.
 func CheckFilePerm(filename string) error {
@@ -281,4 +285,12 @@ func LoadStringAndFileMany(base64OrRaw []string, files []string, vars map[string
 		all = append(all, data)
 	}
 	return all, nil
+=======
+func CreateRetryCurrentPluginAuth(meta map[string]string) *Upstream_RetryCurrentPlugin {
+	return &Upstream_RetryCurrentPlugin{
+		RetryCurrentPlugin: &UpstreamRetryCurrentPluginAuth{
+			Meta: meta,
+		},
+	}
+>>>>>>> upstream/master
 }

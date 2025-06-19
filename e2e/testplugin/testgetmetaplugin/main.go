@@ -10,6 +10,7 @@ import (
 
 func main() {
 
+<<<<<<< HEAD
 	libplugin.RunPluginEntrypoint(&libplugin.PluginEntrypoint{
 		Name: "getmeta",
 		CreateConfig: func(c *cli.Context) (*libplugin.PluginConfig, error) {
@@ -17,6 +18,15 @@ func main() {
 			return &libplugin.PluginConfig{
 				PasswordCallback: func(conn libplugin.PluginConnMetadata, password []byte) (*libplugin.Upstream, error) {
 
+=======
+	libplugin.CreateAndRunPluginTemplate(&libplugin.PluginTemplate{
+		Name: "getmeta",
+		CreateConfig: func(c *cli.Context) (*libplugin.SshPiperPluginConfig, error) {
+
+			return &libplugin.SshPiperPluginConfig{
+				PasswordCallback: func(conn libplugin.ConnMetadata, password []byte) (*libplugin.Upstream, error) {
+
+>>>>>>> upstream/master
 					target := conn.GetMeta("targetaddr")
 
 					host, port, err := libplugin.SplitHostPortForSSH(target)

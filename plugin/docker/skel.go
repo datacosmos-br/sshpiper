@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 
 	"github.com/tg123/sshpiper/libplugin"
+	"github.com/tg123/sshpiper/libplugin/skel"
 )
 
 // dockerSkelPipeWrapper wraps a dockerPipe for use with the SkelPipe interface.
@@ -29,6 +30,7 @@ type dockerSkelPipeWrapper struct {
 	libplugin.SkelPipeWrapper
 }
 
+<<<<<<< HEAD
 // From returns the list of SkelPipeFrom for this Docker pipe.
 // It uses libplugin.FromGeneric to construct the list, providing Docker-specific matchConn logic.
 func (s *dockerSkelPipeWrapper) From() []libplugin.SkelPipeFrom {
@@ -48,6 +50,85 @@ func (s *dockerSkelPipeWrapper) From() []libplugin.SkelPipeFrom {
 			)
 			to := libplugin.NewSkelPipeToWrapper(s.Plugin, p, targetuser, p.Host, true, knownHostsFn)
 			return &to, nil
+=======
+type skelpipeFromWrapper struct {
+	skelpipeWrapper
+}
+
+type skelpipePasswordWrapper struct {
+	skelpipeFromWrapper
+}
+
+type skelpipePublicKeyWrapper struct {
+	skelpipeFromWrapper
+}
+
+type skelpipeToWrapper struct {
+	skelpipeWrapper
+
+	username string
+}
+
+type skelpipeToPasswordWrapper struct {
+	skelpipeToWrapper
+}
+
+type skelpipeToPrivateKeyWrapper struct {
+	skelpipeToWrapper
+}
+
+func (s *skelpipeWrapper) From() []skel.SkelPipeFrom {
+	w := skelpipeFromWrapper{
+		skelpipeWrapper: *s,
+	}
+
+	if s.pipe.PrivateKey != "" || s.pipe.AuthorizedKeys != "" {
+		return []skel.SkelPipeFrom{&skelpipePublicKeyWrapper{
+			skelpipeFromWrapper: w,
+		}}
+	} else {
+		return []skel.SkelPipeFrom{&skelpipePasswordWrapper{
+			skelpipeFromWrapper: w,
+		}}
+	}
+}
+
+func (s *skelpipeToWrapper) User(conn libplugin.ConnMetadata) string {
+	return s.username
+}
+
+func (s *skelpipeToWrapper) Host(conn libplugin.ConnMetadata) string {
+	return s.pipe.Host
+}
+
+func (s *skelpipeToWrapper) IgnoreHostKey(conn libplugin.ConnMetadata) bool {
+	return true // TODO support this
+}
+
+func (s *skelpipeToWrapper) KnownHosts(conn libplugin.ConnMetadata) ([]byte, error) {
+	return nil, nil // TODO support this
+}
+
+func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (skel.SkelPipeTo, error) {
+	user := conn.User()
+
+	matched := s.pipe.ClientUsername == user || s.pipe.ClientUsername == ""
+	targetuser := s.pipe.ContainerUsername
+
+	if targetuser == "" {
+		targetuser = user
+	}
+
+	if matched {
+
+		if s.pipe.PrivateKey != "" {
+			return &skelpipeToPrivateKeyWrapper{
+				skelpipeToWrapper: skelpipeToWrapper{
+					skelpipeWrapper: s.skelpipeWrapper,
+					username:        targetuser,
+				},
+			}, nil
+>>>>>>> upstream/master
 		}
 		return nil, nil
 	}
@@ -96,6 +177,7 @@ func (s *dockerSkelPipeWrapper) OverridePassword(conn libplugin.PluginConnMetada
 	return libplugin.LoadSecretFieldWithFallback(p.VaultKVPath, "password", "", "", map[string]string{"DOWNSTREAM_USER": conn.User()}, filepath.Dir("/"))
 }
 
+<<<<<<< HEAD
 // listPipe loads all Docker pipes and returns them as SkelPipe instances using libplugin.ListPipeGeneric.
 func (p *plugin) listPipe(_ libplugin.PluginConnMetadata) ([]libplugin.SkelPipe, error) {
 	return libplugin.ListPipeGeneric(
@@ -114,4 +196,23 @@ func (p *plugin) listPipe(_ libplugin.PluginConnMetadata) ([]libplugin.SkelPipe,
 			return &dockerSkelPipeWrapper{libplugin.NewSkelPipeWrapper(p, pipe.(*dockerPipe))}
 		},
 	)
+=======
+func (p *plugin) listPipe(_ libplugin.ConnMetadata) ([]skel.SkelPipe, error) {
+	dpipes, err := p.list()
+	if err != nil {
+		return nil, err
+	}
+
+	var pipes []skel.SkelPipe
+	for _, pipe := range dpipes {
+		wrapper := &skelpipeWrapper{
+			plugin: p,
+			pipe:   &pipe,
+		}
+		pipes = append(pipes, wrapper)
+
+	}
+
+	return pipes, nil
+>>>>>>> upstream/master
 }
