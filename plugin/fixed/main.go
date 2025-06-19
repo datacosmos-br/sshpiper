@@ -34,7 +34,11 @@ func main() {
 						Host:          host,
 						Port:          int32(port),
 						IgnoreHostKey: true,
-						Auth:          libplugin.AuthPasswordCreate(password),
+						Auth: &libplugin.Upstream_Password{
+							Password: &libplugin.UpstreamPasswordAuth{
+								Password: string(password),
+							},
+						},
 					}, nil
 				},
 			}, nil

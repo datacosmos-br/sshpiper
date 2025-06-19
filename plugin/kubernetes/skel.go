@@ -27,6 +27,12 @@ type skelpipeFromWrapper struct {
 }
 
 func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (skel.SkelPipeTo, error) {
+	log.WithFields(log.Fields{
+		"operation": "match_conn",
+		"user":      conn.User(),
+		"remote":    conn.RemoteAddr(),
+	}).Debug("Matching connection to Kubernetes pipe")
+
 	user := conn.User()
 	matched := false
 	targetuser := s.pipe.Spec.To.Username
@@ -44,7 +50,7 @@ func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (skel.SkelP
 		if from.UsernameRegexMatch {
 			re, err := regexp.Compile(from.Username)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to compile username regex: %w", err)
 			}
 			if re.MatchString(user) {
 				matched = true
@@ -54,6 +60,11 @@ func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (skel.SkelP
 	}
 
 	if matched {
+		log.WithFields(log.Fields{
+			"user":        user,
+			"target_user": targetuser,
+		}).Info("Successfully matched connection")
+
 		wrapper := &skelpipeToWrapper{
 			skelpipeWrapper: s.skelpipeWrapper,
 			username:        targetuser,
@@ -65,6 +76,11 @@ func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (skel.SkelP
 			return &skelpipeToPasswordWrapper{skelpipeToWrapper: *wrapper}, nil
 		}
 	}
+
+	log.WithFields(log.Fields{
+		"user": user,
+	}).Debug("No matching pipe found for user")
+
 	return nil, nil
 }
 
@@ -107,6 +123,11 @@ type skelpipeToPrivateKeyWrapper struct {
 
 // TestPassword delegates to libplugin.StandardTestPassword for password authentication.
 func (s *skelpipeWrapper) TestPassword(conn libplugin.ConnMetadata, password []byte) (bool, error) {
+	log.WithFields(log.Fields{
+		"operation": "test_password",
+		"user":      conn.User(),
+	}).Debug("Testing password authentication")
+
 	// Aggregate htpasswd data from all from specs
 	var htpasswdData, htpasswdFile string
 	for _, from := range s.pipe.Spec.From {
@@ -119,11 +140,28 @@ func (s *skelpipeWrapper) TestPassword(conn libplugin.ConnMetadata, password []b
 			break
 		}
 	}
-	return libplugin.StandardTestPassword(htpasswdData, htpasswdFile, conn.User(), password)
+
+	success, err := libplugin.StandardTestPassword(htpasswdData, htpasswdFile, conn.User(), password)
+	if err != nil {
+		return false, fmt.Errorf("password authentication failed: %w", err)
+	}
+
+	if success {
+		log.WithFields(log.Fields{
+			"user": conn.User(),
+		}).Info("Password authentication successful")
+	}
+
+	return success, nil
 }
 
 // AuthorizedKeys loads authorized keys using libplugin.StandardAuthorizedKeys with Kubernetes secrets support.
 func (s *skelpipeWrapper) AuthorizedKeys(conn libplugin.ConnMetadata) ([]byte, error) {
+	log.WithFields(log.Fields{
+		"operation": "authorized_keys",
+		"user":      conn.User(),
+	}).Debug("Loading authorized keys")
+
 	var keysSources [][]byte
 	envVars := map[string]string{"DOWNSTREAM_USER": conn.User()}
 
@@ -132,7 +170,7 @@ func (s *skelpipeWrapper) AuthorizedKeys(conn libplugin.ConnMetadata) ([]byte, e
 		// Use standard helper for file/data sources
 		keys, err := libplugin.StandardAuthorizedKeys(from.AuthorizedKeysData, from.AuthorizedKeysFile, envVars, "/")
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to load standard authorized keys: %w", err)
 		}
 		if keys != nil {
 			keysSources = append(keysSources, keys)
@@ -140,18 +178,25 @@ func (s *skelpipeWrapper) AuthorizedKeys(conn libplugin.ConnMetadata) ([]byte, e
 
 		// Add Kubernetes secret if specified
 		if from.AuthorizedKeysSecret.Name != "" {
-			log.Debugf("loading authorized keys from secret %v", from.AuthorizedKeysSecret.Name)
+			log.WithFields(log.Fields{
+				"secret_name": from.AuthorizedKeysSecret.Name,
+				"namespace":   s.pipe.Namespace,
+			}).Debug("Loading authorized keys from Kubernetes secret")
+
 			anno := s.pipe.GetAnnotations()
 
 			secret, err := s.plugin.k8sclient.CoreV1().Secrets(s.pipe.Namespace).Get(context.Background(), from.AuthorizedKeysSecret.Name, metav1.GetOptions{})
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to get authorized keys secret %s: %w", from.AuthorizedKeysSecret.Name, err)
 			}
 
 			for _, k := range []string{anno["sshpiper.com/authorizedkeys_field_name"], anno["authorizedkeys_field_name"], "authorized_keys", "authorizedkeys", "ssh-authorizedkeys"} {
 				data := secret.Data[k]
 				if data != nil {
-					log.Debugf("found authorized keys in secret %v/%v", from.AuthorizedKeysSecret.Name, k)
+					log.WithFields(log.Fields{
+						"secret_name": from.AuthorizedKeysSecret.Name,
+						"field_name":  k,
+					}).Debug("Found authorized keys in secret")
 					keysSources = append(keysSources, data)
 					break
 				}
@@ -160,14 +205,26 @@ func (s *skelpipeWrapper) AuthorizedKeys(conn libplugin.ConnMetadata) ([]byte, e
 	}
 
 	if len(keysSources) == 0 {
+		log.Debug("No authorized keys found")
 		return nil, nil
 	}
 
-	return bytes.Join(keysSources, []byte("\n")), nil
+	result := bytes.Join(keysSources, []byte("\n"))
+	log.WithFields(log.Fields{
+		"keys_count": len(keysSources),
+		"total_size": len(result),
+	}).Info("Successfully loaded authorized keys")
+
+	return result, nil
 }
 
 // TrustedUserCAKeys loads trusted CA keys using libplugin.StandardTrustedUserCAKeys with Kubernetes secrets support.
 func (s *skelpipeWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata) ([]byte, error) {
+	log.WithFields(log.Fields{
+		"operation": "trusted_user_ca_keys",
+		"user":      conn.User(),
+	}).Debug("Loading trusted user CA keys")
+
 	var keysSources [][]byte
 	envVars := map[string]string{"DOWNSTREAM_USER": conn.User()}
 
@@ -176,7 +233,7 @@ func (s *skelpipeWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata) ([]byte
 		// Use standard helper for file/data sources
 		caKeys, err := libplugin.StandardTrustedUserCAKeys(from.TrustedUserCAKeysData, from.TrustedUserCAKeysFile, envVars, "/")
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to load standard trusted user CA keys: %w", err)
 		}
 		if caKeys != nil {
 			keysSources = append(keysSources, caKeys)
@@ -184,7 +241,11 @@ func (s *skelpipeWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata) ([]byte
 
 		// Add Kubernetes secret if specified
 		if from.TrustedUserCAKeysSecret.Name != "" {
-			log.Debugf("loading trusted user CA keys from secret %v", from.TrustedUserCAKeysSecret.Name)
+			log.WithFields(log.Fields{
+				"secret_name": from.TrustedUserCAKeysSecret.Name,
+				"namespace":   s.pipe.Namespace,
+			}).Debug("Loading trusted user CA keys from Kubernetes secret")
+
 			anno := s.pipe.GetAnnotations()
 
 			secret, err := s.plugin.k8sclient.CoreV1().Secrets(s.pipe.Namespace).Get(context.Background(), from.TrustedUserCAKeysSecret.Name, metav1.GetOptions{})
@@ -204,7 +265,10 @@ func (s *skelpipeWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata) ([]byte
 				if k != "" {
 					data := secret.Data[k]
 					if data != nil {
-						log.Debugf("found trusted user CA keys in secret %v/%v", from.TrustedUserCAKeysSecret.Name, k)
+						log.WithFields(log.Fields{
+							"secret_name": from.TrustedUserCAKeysSecret.Name,
+							"field_name":  k,
+						}).Debug("Found trusted user CA keys in secret")
 						keysSources = append(keysSources, data)
 						break
 					}
@@ -214,10 +278,17 @@ func (s *skelpipeWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata) ([]byte
 	}
 
 	if len(keysSources) == 0 {
+		log.Debug("No trusted user CA keys found")
 		return nil, nil
 	}
 
-	return bytes.Join(keysSources, []byte("\n")), nil
+	result := bytes.Join(keysSources, []byte("\n"))
+	log.WithFields(log.Fields{
+		"keys_count": len(keysSources),
+		"total_size": len(result),
+	}).Info("Successfully loaded trusted user CA keys")
+
+	return result, nil
 }
 
 func (s *skelpipeWrapper) From() []skel.SkelPipeFrom {
@@ -282,6 +353,7 @@ func (p *plugin) listPipe(_ libplugin.ConnMetadata) ([]skel.SkelPipe, error) {
 		if !ok {
 			continue // Skip invalid pipe types
 		}
+
 		wrapper := &skelpipeWrapper{
 			SkelPipeWrapper: libplugin.SkelPipeWrapper{
 				Plugin: p,
