@@ -314,10 +314,6 @@ func (d *daemon) run() {
 					log.Errorf("cannot create screen recording dir %v: %v", recorddir, err)
 					return
 				}
-<<<<<<< HEAD
-=======
-
->>>>>>> upstream/master
 				switch d.recordfmt {
 				case "asciicast":
 					prefix := ""
@@ -332,13 +328,8 @@ func (d *daemon) run() {
 						}
 					}()
 
-<<<<<<< HEAD
-					uphook = recorder.uphook
-					downhook = recorder.downhook
-=======
 					uphookchain.append(ssh.InspectPacketHook(recorder.uphook))
 					downhookchain.append(ssh.InspectPacketHook(recorder.downhook))
->>>>>>> upstream/master
 				case "typescript":
 					recorder, err := newFilePtyLogger(recorddir)
 					if err != nil {

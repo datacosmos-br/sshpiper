@@ -11,12 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/tg123/sshpiper/libplugin"
-<<<<<<< HEAD
-	cli "github.com/urfave/cli/v2"
-	"golang.org/x/crypto/ssh"
-=======
 	"github.com/tg123/sshpiper/libplugin/skel"
->>>>>>> upstream/master
 )
 
 // plugin implements the YAML plugin entrypoint.
@@ -30,14 +25,6 @@ func newYamlPlugin() *plugin {
 	return &plugin{}
 }
 
-<<<<<<< HEAD
-// listPipe loads YAML configs and returns a list of SkelPipe.
-func (p *plugin) listPipe(_ libplugin.PluginConnMetadata) ([]libplugin.SkelPipe, error) {
-	var configs []piperConfig
-	_, err := libplugin.LoadYAMLConfigFiles(p.FileGlobs.Value(), p.NoCheckPerm, &configs)
-	if err != nil {
-		return nil, err
-=======
 type skelpipeToWrapper struct {
 	config *piperConfig
 
@@ -72,7 +59,6 @@ func (s *skelpipeWrapper) From() []skel.SkelPipeFrom {
 				skelpipeFromWrapper: *w,
 			})
 		}
->>>>>>> upstream/master
 	}
 	return libplugin.ListPipeGeneric(
 		func() ([]interface{}, error) {
@@ -96,43 +82,6 @@ type yamlSkelPipeWrapper struct {
 	libplugin.SkelPipeWrapper
 }
 
-<<<<<<< HEAD
-// From returns the list of SkelPipeFrom for this YAML pipe.
-// It uses libplugin.FromGeneric to construct the list, providing YAML-specific matchConn logic.
-func (s *yamlSkelPipeWrapper) From() []libplugin.SkelPipeFrom {
-	config := s.Plugin.(*piperConfig)
-	pipe := s.Pipe.(*yamlPipe)
-	fromSpecs := libplugin.ExtractSpecs(pipe.From)
-	to := &pipe.To
-	matchConnFn := func(from interface{}, conn libplugin.PluginConnMetadata) (libplugin.SkelPipeTo, error) {
-		f := from.(*yamlPipeFrom)
-		username := conn.User()
-		targetuser := to.Username
-		var matched bool
-		if f.Username != "" {
-			matched = f.Username == username
-			if f.UsernameRegexMatch {
-				re, err := regexp.Compile(f.Username)
-				if err != nil {
-					return nil, err
-				}
-				matched = re.MatchString(username)
-				if matched {
-					targetuser = re.ReplaceAllString(username, to.Username)
-				}
-			}
-		} else if f.Groupname != "" {
-			usr, err := user.Lookup(username)
-			if err != nil {
-				var unknownUser user.UnknownUserError
-				if errors.As(err, &unknownUser) {
-					return nil, nil
-				}
-				log.Errorf("[ERROR] Matchconn(): Failure looking up user %q: %T - %v", username, err, err)
-				return nil, err
-			}
-			userGroups, err := libplugin.UserGroupNames(usr)
-=======
 func (s *skelpipeToWrapper) Host(conn libplugin.ConnMetadata) string {
 	return s.to.Host
 }
@@ -158,7 +107,6 @@ func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (skel.SkelP
 		matched = s.from.Username == username
 		if s.from.UsernameRegexMatch {
 			re, err := regexp.Compile(s.from.Username)
->>>>>>> upstream/master
 			if err != nil {
 				return nil, err
 			}
@@ -225,7 +173,6 @@ func (s *yamlSkelPipeWrapper) AuthorizedKeys(conn libplugin.PluginConnMetadata) 
 	)
 }
 
-<<<<<<< HEAD
 // TrustedUserCAKeys loads CA keys from all 'from' specs using generic aggregation.
 func (s *yamlSkelPipeWrapper) TrustedUserCAKeys(conn libplugin.PluginConnMetadata) ([]byte, error) {
 	pipe := s.Pipe.(*yamlPipe)
@@ -240,26 +187,11 @@ func (s *yamlSkelPipeWrapper) TrustedUserCAKeys(conn libplugin.PluginConnMetadat
 	)
 }
 
-// PrivateKey loads the private key for upstream authentication using Vault, file, or base64.
-func (s *yamlSkelPipeWrapper) PrivateKey(conn libplugin.PluginConnMetadata) ([]byte, []byte, error) {
-	config := s.Plugin.(*piperConfig)
-	pipe := s.Pipe.(*yamlPipe)
-	to := &pipe.To
-	val, err := libplugin.GetFirstFieldFromSpecs(
-		[]interface{}{to},
-		[]string{"private_key", "private_key_data"},
-		[]string{"PrivateKey"},
-		[]string{"PrivateKeyData"},
-		conn,
-		filepath.Dir(config.filename),
-	)
-=======
 func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([]byte, []byte, error) {
 	p, err := s.config.loadFileOrDecode(s.to.PrivateKey, s.to.PrivateKeyData, map[string]string{
 		"DOWNSTREAM_USER": conn.User(),
 		"UPSTREAM_USER":   s.username,
 	})
->>>>>>> upstream/master
 	if err != nil {
 		return nil, nil, err
 	}
@@ -285,8 +217,6 @@ func (s *yamlSkelPipeWrapper) OverridePassword(conn libplugin.PluginConnMetadata
 	}
 	return nil, nil
 }
-<<<<<<< HEAD
-=======
 
 func (p *plugin) listPipe(_ libplugin.ConnMetadata) ([]skel.SkelPipe, error) {
 	configs, err := p.loadConfig()
@@ -328,4 +258,3 @@ func getUserGroups(usr *user.User) ([]string, error) {
 
 	return groups, nil
 }
->>>>>>> upstream/master

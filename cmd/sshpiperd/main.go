@@ -315,10 +315,6 @@ func main() {
 			remain := args
 
 			for len(remain) > 0 {
-<<<<<<< HEAD
-=======
-
->>>>>>> upstream/master
 				args, remain = splitByDash(remain)
 
 				if len(args) <= 0 {

@@ -1,21 +1,4 @@
-<<<<<<< HEAD:libplugin/skel.go
-// Package libplugin provides the SkelPlugin skeleton and interfaces for generic SSHPiper plugin implementations.
-//
-// This file contains:
-//   - SkelPlugin: Generic, cache-enabled plugin skeleton for SSHPiper plugins
-//   - SkelPipe, SkelPipeFrom, SkelPipeTo and their sub-interfaces for password/publickey/privatekey
-//   - All generic plugin callback logic (method selection, host key verification, password/publickey callbacks, upstream construction)
-//
-// These types and functions are used by plugins to implement the SkelPlugin contract, enabling flexible, reusable plugin logic for authentication and connection handling.
-//
-// Example usage:
-//
-//	skel := NewSkelPlugin(listPipeFn)
-//	config := skel.CreateConfig()
-package libplugin
-=======
 package skel
->>>>>>> upstream/master:libplugin/skel/skel.go
 
 import (
 	"bytes"
@@ -25,12 +8,9 @@ import (
 	"time"
 
 	"github.com/patrickmn/go-cache"
-<<<<<<< HEAD:libplugin/skel.go
-=======
 	"github.com/tg123/sshpiper/libplugin"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
->>>>>>> upstream/master:libplugin/skel/skel.go
 
 	log "github.com/sirupsen/logrus"
 )
@@ -43,22 +23,10 @@ import (
 //	config := skel.CreateConfig()
 type SkelPlugin struct {
 	cache    *cache.Cache
-<<<<<<< HEAD:libplugin/skel.go
-	listPipe func(PluginConnMetadata) ([]SkelPipe, error)
-}
-
-// NewSkelPlugin creates a new SkelPlugin with the given listPipe function.
-//
-// Example usage:
-//
-//	skel := NewSkelPlugin(listPipeFn)
-func NewSkelPlugin(listPipe func(PluginConnMetadata) ([]SkelPipe, error)) *SkelPlugin {
-=======
 	listPipe func(libplugin.ConnMetadata) ([]SkelPipe, error)
 }
 
 func NewSkelPlugin(listPipe func(libplugin.ConnMetadata) ([]SkelPipe, error)) *SkelPlugin {
->>>>>>> upstream/master:libplugin/skel/skel.go
 	return &SkelPlugin{
 		cache:    cache.New(1*time.Minute, 10*time.Minute),
 		listPipe: listPipe,
@@ -80,11 +48,7 @@ type SkelPipe interface {
 //
 //	to, err := from.MatchConn(conn)
 type SkelPipeFrom interface {
-<<<<<<< HEAD:libplugin/skel.go
-	MatchConn(conn PluginConnMetadata) (SkelPipeTo, error)
-=======
 	MatchConn(conn libplugin.ConnMetadata) (SkelPipeTo, error)
->>>>>>> upstream/master:libplugin/skel/skel.go
 }
 
 // SkelPipeFromPassword is a SkelPipeFrom that supports password authentication.
@@ -94,12 +58,8 @@ type SkelPipeFrom interface {
 //	ok, err := from.TestPassword(conn, password)
 type SkelPipeFromPassword interface {
 	SkelPipeFrom
-<<<<<<< HEAD:libplugin/skel.go
-	TestPassword(conn PluginConnMetadata, password []byte) (bool, error)
-=======
 
 	TestPassword(conn libplugin.ConnMetadata, password []byte) (bool, error)
->>>>>>> upstream/master:libplugin/skel/skel.go
 }
 
 // SkelPipeFromPublicKey is a SkelPipeFrom that supports public key authentication.
@@ -109,14 +69,9 @@ type SkelPipeFromPassword interface {
 //	keys, err := from.AuthorizedKeys(conn)
 type SkelPipeFromPublicKey interface {
 	SkelPipeFrom
-<<<<<<< HEAD:libplugin/skel.go
-	AuthorizedKeys(conn PluginConnMetadata) ([]byte, error)
-	TrustedUserCAKeys(conn PluginConnMetadata) ([]byte, error)
-=======
 
 	AuthorizedKeys(conn libplugin.ConnMetadata) ([]byte, error)
 	TrustedUserCAKeys(conn libplugin.ConnMetadata) ([]byte, error)
->>>>>>> upstream/master:libplugin/skel/skel.go
 }
 
 // SkelPipeTo represents an upstream connection target.
@@ -125,17 +80,10 @@ type SkelPipeFromPublicKey interface {
 //
 //	host := to.Host(conn)
 type SkelPipeTo interface {
-<<<<<<< HEAD:libplugin/skel.go
-	Host(conn PluginConnMetadata) string
-	User(conn PluginConnMetadata) string
-	IgnoreHostKey(conn PluginConnMetadata) bool
-	KnownHosts(conn PluginConnMetadata) ([]byte, error)
-=======
 	Host(conn libplugin.ConnMetadata) string
 	User(conn libplugin.ConnMetadata) string
 	IgnoreHostKey(conn libplugin.ConnMetadata) bool
 	KnownHosts(conn libplugin.ConnMetadata) ([]byte, error)
->>>>>>> upstream/master:libplugin/skel/skel.go
 }
 
 // SkelPipeToPassword is a SkelPipeTo that supports password override.
@@ -145,12 +93,8 @@ type SkelPipeTo interface {
 //	pass, err := to.OverridePassword(conn)
 type SkelPipeToPassword interface {
 	SkelPipeTo
-<<<<<<< HEAD:libplugin/skel.go
-	OverridePassword(conn PluginConnMetadata) ([]byte, error)
-=======
 
 	OverridePassword(conn libplugin.ConnMetadata) ([]byte, error)
->>>>>>> upstream/master:libplugin/skel/skel.go
 }
 
 // SkelPipeToPrivateKey is a SkelPipeTo that supports private key authentication.
@@ -160,25 +104,12 @@ type SkelPipeToPassword interface {
 //	priv, cert, err := to.PrivateKey(conn)
 type SkelPipeToPrivateKey interface {
 	SkelPipeTo
-<<<<<<< HEAD:libplugin/skel.go
-	PrivateKey(conn PluginConnMetadata) ([]byte, []byte, error)
-}
-
-// CreateConfig returns a PluginConfig with SkelPlugin's callbacks.
-//
-// Example usage:
-//
-//	config := skel.CreateConfig()
-func (p *SkelPlugin) CreateConfig() *PluginConfig {
-	return &PluginConfig{
-=======
 
 	PrivateKey(conn libplugin.ConnMetadata) ([]byte, []byte, error)
 }
 
 func (p *SkelPlugin) CreateConfig() *libplugin.SshPiperPluginConfig {
 	return &libplugin.SshPiperPluginConfig{
->>>>>>> upstream/master:libplugin/skel/skel.go
 		NextAuthMethodsCallback: p.SupportedMethods,
 		PasswordCallback:        p.PasswordCallback,
 		PublicKeyCallback:       p.PublicKeyCallback,
@@ -186,16 +117,7 @@ func (p *SkelPlugin) CreateConfig() *libplugin.SshPiperPluginConfig {
 	}
 }
 
-<<<<<<< HEAD:libplugin/skel.go
-// SupportedMethods returns the supported authentication methods for a connection.
-//
-// Example usage:
-//
-//	methods, err := skel.SupportedMethods(conn)
-func (p *SkelPlugin) SupportedMethods(conn PluginConnMetadata) ([]string, error) {
-=======
 func (p *SkelPlugin) SupportedMethods(conn libplugin.ConnMetadata) ([]string, error) {
->>>>>>> upstream/master:libplugin/skel/skel.go
 	set := make(map[string]bool)
 
 	pipes, err := p.listPipe(conn)
@@ -227,16 +149,7 @@ func (p *SkelPlugin) SupportedMethods(conn libplugin.ConnMetadata) ([]string, er
 	return methods, nil
 }
 
-<<<<<<< HEAD:libplugin/skel.go
-// VerifyHostKeyCallback verifies the upstream host key using the cached SkelPipeTo.
-//
-// Example usage:
-//
-//	err := skel.VerifyHostKeyCallback(conn, hostname, netaddr, key)
-func (p *SkelPlugin) VerifyHostKeyCallback(conn PluginConnMetadata, hostname, netaddr string, key []byte) error {
-=======
 func (p *SkelPlugin) VerifyHostKeyCallback(conn libplugin.ConnMetadata, hostname, netaddr string, key []byte) error {
->>>>>>> upstream/master:libplugin/skel/skel.go
 	item, found := p.cache.Get(conn.UniqueID())
 	if !found {
 		log.Warnf("connection expired when verifying host key for conn [%v]", conn.UniqueID())
@@ -253,16 +166,7 @@ func (p *SkelPlugin) VerifyHostKeyCallback(conn libplugin.ConnMetadata, hostname
 	return VerifyHostKeyFromKnownHosts(bytes.NewBuffer(data), hostname, netaddr, key)
 }
 
-<<<<<<< HEAD:libplugin/skel.go
-// match finds a matching SkelPipeFrom and SkelPipeTo for the connection, using the provided verify function.
-//
-// Example usage:
-//
-//	from, to, err := skel.match(conn, verifyFn)
-func (p *SkelPlugin) match(conn PluginConnMetadata, verify func(SkelPipeFrom) (bool, error)) (SkelPipeFrom, SkelPipeTo, error) {
-=======
 func (p *SkelPlugin) match(conn libplugin.ConnMetadata, verify func(SkelPipeFrom) (bool, error)) (SkelPipeFrom, SkelPipeTo, error) {
->>>>>>> upstream/master:libplugin/skel/skel.go
 	pipes, err := p.listPipe(conn)
 	if err != nil {
 		return nil, nil, err
@@ -294,24 +198,6 @@ func (p *SkelPlugin) match(conn libplugin.ConnMetadata, verify func(SkelPipeFrom
 	return nil, nil, fmt.Errorf("no matching pipe for username [%v] found", conn.User())
 }
 
-<<<<<<< HEAD:libplugin/skel.go
-// PasswordCallback handles password authentication for the connection.
-//
-// Example usage:
-//
-//	up, err := skel.PasswordCallback(conn, password)
-func (p *SkelPlugin) PasswordCallback(conn PluginConnMetadata, password []byte) (*Upstream, error) {
-	return PasswordCallback(p, conn, password)
-}
-
-// PublicKeyCallback handles public key authentication for the connection.
-//
-// Example usage:
-//
-//	up, err := skel.PublicKeyCallback(conn, publicKey)
-func (p *SkelPlugin) PublicKeyCallback(conn PluginConnMetadata, publicKey []byte) (*Upstream, error) {
-	return PublicKeyCallback(p, conn, publicKey)
-=======
 func (p *SkelPlugin) PasswordCallback(conn libplugin.ConnMetadata, password []byte) (*libplugin.Upstream, error) {
 	_, to, err := p.match(conn, func(from SkelPipeFrom) (bool, error) {
 		frompass, ok := from.(SkelPipeFromPassword)
@@ -460,7 +346,6 @@ func (p *SkelPlugin) createUpstream(conn libplugin.ConnMetadata, to SkelPipeTo, 
 	}
 
 	return u, err
->>>>>>> upstream/master:libplugin/skel/skel.go
 }
 
 func VerifyHostKeyFromKnownHosts(knownhostsData io.Reader, hostname, netaddr string, key []byte) error {

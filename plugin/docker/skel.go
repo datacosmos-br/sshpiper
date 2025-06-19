@@ -30,27 +30,6 @@ type dockerSkelPipeWrapper struct {
 	libplugin.SkelPipeWrapper
 }
 
-<<<<<<< HEAD
-// From returns the list of SkelPipeFrom for this Docker pipe.
-// It uses libplugin.FromGeneric to construct the list, providing Docker-specific matchConn logic.
-func (s *dockerSkelPipeWrapper) From() []libplugin.SkelPipeFrom {
-	pipe := s.Pipe.(*dockerPipe)
-	fromSpecs := []interface{}{pipe}
-	matchConnFn := func(from interface{}, conn libplugin.PluginConnMetadata) (libplugin.SkelPipeTo, error) {
-		p := from.(*dockerPipe)
-		user := conn.User()
-		matched := libplugin.MatchUserOrEmpty(p.ClientUsername, user)
-		targetuser := libplugin.ResolveTargetUser(p.ContainerUsername, user)
-		if matched {
-			knownHostsFn := libplugin.BuildKnownHostsFn(
-				p.KnownHostsFile,
-				p.KnownHostsData,
-				map[string]string{"DOWNSTREAM_USER": conn.User(), "UPSTREAM_USER": targetuser},
-				filepath.Dir("/"),
-			)
-			to := libplugin.NewSkelPipeToWrapper(s.Plugin, p, targetuser, p.Host, true, knownHostsFn)
-			return &to, nil
-=======
 type skelpipeFromWrapper struct {
 	skelpipeWrapper
 }
@@ -128,7 +107,6 @@ func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (skel.SkelP
 					username:        targetuser,
 				},
 			}, nil
->>>>>>> upstream/master
 		}
 		return nil, nil
 	}
@@ -177,26 +155,6 @@ func (s *dockerSkelPipeWrapper) OverridePassword(conn libplugin.PluginConnMetada
 	return libplugin.LoadSecretFieldWithFallback(p.VaultKVPath, "password", "", "", map[string]string{"DOWNSTREAM_USER": conn.User()}, filepath.Dir("/"))
 }
 
-<<<<<<< HEAD
-// listPipe loads all Docker pipes and returns them as SkelPipe instances using libplugin.ListPipeGeneric.
-func (p *plugin) listPipe(_ libplugin.PluginConnMetadata) ([]libplugin.SkelPipe, error) {
-	return libplugin.ListPipeGeneric(
-		func() ([]interface{}, error) {
-			dpipes, err := p.list()
-			if err != nil {
-				return nil, err
-			}
-			out := make([]interface{}, len(dpipes))
-			for i := range dpipes {
-				out[i] = &dpipes[i]
-			}
-			return out, nil
-		},
-		func(pipe interface{}) libplugin.SkelPipe {
-			return &dockerSkelPipeWrapper{libplugin.NewSkelPipeWrapper(p, pipe.(*dockerPipe))}
-		},
-	)
-=======
 func (p *plugin) listPipe(_ libplugin.ConnMetadata) ([]skel.SkelPipe, error) {
 	dpipes, err := p.list()
 	if err != nil {
@@ -214,5 +172,4 @@ func (p *plugin) listPipe(_ libplugin.ConnMetadata) ([]skel.SkelPipe, error) {
 	}
 
 	return pipes, nil
->>>>>>> upstream/master
 }

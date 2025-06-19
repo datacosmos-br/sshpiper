@@ -26,22 +26,6 @@ type skelpipeWrapper struct {
 	username string
 }
 
-<<<<<<< HEAD
-func (s *skelpipeWrapper) From() []libplugin.SkelPipeFrom {
-	fromSpecs := []interface{}{s}
-	matchConnFn := func(from interface{}, conn libplugin.PluginConnMetadata) (libplugin.SkelPipeTo, error) {
-		w := from.(*skelpipeWrapper)
-		var to libplugin.SkelPipeToWrapper
-		if w.dir.Exists(userKeyFile) {
-			knownHostsFn := func(conn libplugin.PluginConnMetadata) ([]byte, error) {
-				return w.dir.Readfile(userKnownHosts)
-			}
-			to = libplugin.NewSkelPipeToWrapper(w.dir, nil, w.username, w.host, !w.dir.Strict, knownHostsFn)
-			return &to, nil
-		}
-		to = libplugin.NewSkelPipeToWrapper(w.dir, nil, w.username, w.host, !w.dir.Strict, nil)
-		return &to, nil
-=======
 type skelpipeFromWrapper struct {
 	skelpipeWrapper
 }
@@ -79,7 +63,6 @@ func (s *skelpipeWrapper) From() []skel.SkelPipeFrom {
 		return []skel.SkelPipeFrom{&skelpipePasswordWrapper{
 			skelpipeFromWrapper: w,
 		}}
->>>>>>> upstream/master
 	}
 	return libplugin.FromGeneric(s.dir, s, fromSpecs, matchConnFn, nil)
 }
@@ -100,9 +83,6 @@ func (s *skelpipeWrapper) KnownHosts(conn libplugin.PluginConnMetadata) ([]byte,
 	return s.dir.Readfile(userKnownHosts)
 }
 
-<<<<<<< HEAD
-func (wf *workdingdirFactory) listPipe(conn libplugin.PluginConnMetadata) ([]libplugin.SkelPipe, error) {
-=======
 func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (skel.SkelPipeTo, error) {
 	if s.dir.Exists(userKeyFile) {
 		return &skelpipeToPrivateKeyWrapper{
@@ -141,7 +121,6 @@ func (s *skelpipeToPasswordWrapper) OverridePassword(conn libplugin.ConnMetadata
 }
 
 func (wf *workdingdirFactory) listPipe(conn libplugin.ConnMetadata) ([]skel.SkelPipe, error) {
->>>>>>> upstream/master
 	user := conn.User()
 
 	if !wf.allowBadUsername {

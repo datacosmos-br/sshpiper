@@ -15,32 +15,6 @@ type skelpipeWrapper struct {
 	pipe   *piperv1beta1.Pipe
 }
 
-<<<<<<< HEAD
-// From returns the list of SkelPipeFrom for this pipe.
-func (s *skelpipeWrapper) From() []libplugin.SkelPipeFrom {
-	fromSpecs := make([]interface{}, len(s.pipe.Spec.From))
-	for i := range s.pipe.Spec.From {
-		fromSpecs[i] = &s.pipe.Spec.From[i]
-	}
-	to := &s.pipe.Spec.To
-	matchConnFn := func(from interface{}, conn libplugin.PluginConnMetadata) (libplugin.SkelPipeTo, error) {
-		f := from.(*piperv1beta1.FromSpec)
-		user := conn.User()
-		targetuser := to.Username
-		matched := f.Username == user
-		if targetuser == "" {
-			targetuser = user
-		}
-		if f.UsernameRegexMatch {
-			re, err := regexp.Compile(f.Username)
-			if err != nil {
-				return nil, err
-			}
-			matched = re.MatchString(user)
-			if matched {
-				targetuser = re.ReplaceAllString(user, to.Username)
-			}
-=======
 func (s *skelpipeWrapper) From() []skel.SkelPipeFrom {
 	var froms []skel.SkelPipeFrom
 	for _, f := range s.pipe.Spec.From {
@@ -95,7 +69,6 @@ func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (skel.SkelP
 		re, err := regexp.Compile(s.from.Username)
 		if err != nil {
 			return nil, err
->>>>>>> upstream/master
 		}
 		if matched {
 			knownHostsFn := func(conn libplugin.PluginConnMetadata) ([]byte, error) {
@@ -114,33 +87,6 @@ func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (skel.SkelP
 	return libplugin.FromGeneric(s.plugin, to, fromSpecs, matchConnFn, nil)
 }
 
-<<<<<<< HEAD
-// listPipe returns all SkelPipe instances for the plugin.
-func (p *plugin) listPipe(_ libplugin.PluginConnMetadata) ([]libplugin.SkelPipe, error) {
-	return libplugin.ListPipeGeneric(
-		func() ([]interface{}, error) {
-			pipes, err := p.list()
-			if err != nil {
-				return nil, err
-			}
-			out := make([]interface{}, len(pipes))
-			copy(out, pipes)
-			return out, nil
-		},
-		func(pipe interface{}) libplugin.SkelPipe {
-			return &skelpipeWrapper{plugin: p, pipe: pipe.(*piperv1beta1.Pipe)}
-		},
-	)
-}
-
-// TestPassword checks the password using Kubernetes Secret, Vault, or generic logic.
-func (s *skelpipeWrapper) TestPassword(conn libplugin.PluginConnMetadata, password []byte) (bool, error) {
-	to := &s.pipe.Spec.To
-	anno := libplugin.GetAnnotations(s.pipe)
-	fieldNames := libplugin.ResolveFieldNames(anno, "password_field_name", "password")
-	if to.PasswordSecret.Name != "" {
-		data, err := libplugin.LoadKubernetesSecretField(s.pipe.Namespace, to.PasswordSecret.Name, fieldNames, s.plugin.k8sclient)
-=======
 func (s *skelpipePasswordWrapper) TestPassword(conn libplugin.ConnMetadata, password []byte) (bool, error) {
 	pwds, err := loadStringAndFile(s.from.HtpasswdData, s.from.HtpasswdFile)
 	if err != nil {
@@ -152,16 +98,11 @@ func (s *skelpipePasswordWrapper) TestPassword(conn libplugin.ConnMetadata, pass
 	for _, data := range pwds {
 		log.Debugf("try to match password using htpasswd")
 		auth, err := htpasswd.NewFromReader(bytes.NewReader(data), htpasswd.DefaultSystems, nil)
->>>>>>> upstream/master
 		if err != nil {
 			return false, err
 		}
 		return string(data) == string(password), nil
 	}
-<<<<<<< HEAD
-	if to.VaultKVPath != "" {
-		data, err := libplugin.LoadVaultSecretField(to.VaultKVPath, fieldNames)
-=======
 
 	return pwdmatched, nil // yaml do not test input password
 }
@@ -237,7 +178,6 @@ func (s *skelpipeToPasswordWrapper) OverridePassword(conn libplugin.ConnMetadata
 	if s.to.PasswordSecret.Name != "" {
 		log.Debugf("mapping to %v password using secret %v", s.to.Host, s.to.PasswordSecret.Name)
 		secret, err := s.plugin.k8sclient.Secrets(s.pipe.Namespace).Get(context.Background(), s.to.PasswordSecret.Name, metav1.GetOptions{})
->>>>>>> upstream/master
 		if err != nil {
 			return false, err
 		}
@@ -247,17 +187,6 @@ func (s *skelpipeToPasswordWrapper) OverridePassword(conn libplugin.ConnMetadata
 	return libplugin.CheckPasswordFromSpecs(fromSpecs, conn.User(), password)
 }
 
-<<<<<<< HEAD
-// AuthorizedKeys loads authorized keys from Kubernetes Secret, Vault, or generic logic.
-func (s *skelpipeWrapper) AuthorizedKeys(conn libplugin.PluginConnMetadata) ([]byte, error) {
-	anno := libplugin.GetAnnotations(s.pipe)
-	fieldNames := libplugin.ResolveFieldNames(anno, "authorizedkeys_field_name", "authorized_keys", "authorized_keys_data")
-	to := &s.pipe.Spec.To
-	if to.VaultKVPath != "" {
-		data, err := libplugin.LoadVaultSecretField(to.VaultKVPath, fieldNames)
-		if err == nil && len(data) > 0 {
-			return data, nil
-=======
 func loadStringAndFile(base64orraw string, filepath string) ([][]byte, error) {
 	all := make([][]byte, 0, 2)
 
@@ -265,7 +194,6 @@ func loadStringAndFile(base64orraw string, filepath string) ([][]byte, error) {
 		data, err := base64.StdEncoding.DecodeString(base64orraw)
 		if err != nil {
 			data = []byte(base64orraw)
->>>>>>> upstream/master
 		}
 	}
 	return libplugin.AggregateFieldsFromSpecs(
@@ -278,17 +206,6 @@ func loadStringAndFile(base64orraw string, filepath string) ([][]byte, error) {
 	)
 }
 
-<<<<<<< HEAD
-// TrustedUserCAKeys loads CA keys from Kubernetes Secret, Vault, or generic logic.
-func (s *skelpipeWrapper) TrustedUserCAKeys(conn libplugin.PluginConnMetadata) ([]byte, error) {
-	anno := libplugin.GetAnnotations(s.pipe)
-	fieldNames := libplugin.ResolveFieldNames(anno, "cakey_field_name", "trusted_user_ca_keys", "trusted_user_ca_keys_data")
-	to := &s.pipe.Spec.To
-	if to.VaultKVPath != "" {
-		data, err := libplugin.LoadVaultSecretField(to.VaultKVPath, fieldNames)
-		if err == nil && len(data) > 0 {
-			return data, nil
-=======
 func (p *plugin) listPipe(_ libplugin.ConnMetadata) ([]skel.SkelPipe, error) {
 	kpipes, err := p.list()
 	if err != nil {
@@ -300,7 +217,6 @@ func (p *plugin) listPipe(_ libplugin.ConnMetadata) ([]skel.SkelPipe, error) {
 		wrapper := &skelpipeWrapper{
 			plugin: p,
 			pipe:   pipe,
->>>>>>> upstream/master
 		}
 	}
 	return libplugin.AggregateFieldsFromSpecs(

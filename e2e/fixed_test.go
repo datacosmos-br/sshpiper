@@ -46,22 +46,6 @@ func TestOldSshd(t *testing.T) {
 			randtext := uuid.New().String()
 			targetfie := uuid.New().String()
 
-<<<<<<< HEAD
-			runSSHTestUnified(SSHTestParams{
-				T:                t,
-				PiperPort:        piperport,
-				Username:         "user",
-				Password:         "pass",
-				PasswordRequired: true,
-				SSHBin:           tc.bin,
-				Command:          fmt.Sprintf(`sh -c "echo SSHREADY && sleep 1 && echo -n %v > /shared/%v"`, randtext, targetfie),
-				WaitFor:          "SSHREADY",
-				StdinTrigger:     "triggerping",
-				ExpectSuccess:    true,
-				CheckFile:        true,
-				ExpectedText:     randtext,
-				TargetFile:       targetfie,
-=======
 			c, stdin, stdout, err := runCmd(
 				tc.bin,
 				"-v",
@@ -89,7 +73,6 @@ func TestOldSshd(t *testing.T) {
 
 			waitForStdoutContains(stdout, "SSHREADY", func(_ string) {
 				_, _ = fmt.Fprintf(stdin, "%v\n", "triggerping")
->>>>>>> upstream/master
 			})
 		})
 	}

@@ -59,11 +59,7 @@ func newAsciicastLogger(recorddir string, prefix string) *asciicastLogger {
 	}
 }
 
-<<<<<<< HEAD
-func (l *asciicastLogger) uphook(msg []byte) ([]byte, error) {
-=======
 func (l *asciicastLogger) uphook(msg []byte) error {
->>>>>>> upstream/master
 	switch msg[0] {
 	case msgChannelData:
 		clientChannelID := binary.BigEndian.Uint32(msg[1:5])

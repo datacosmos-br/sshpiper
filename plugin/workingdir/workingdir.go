@@ -32,8 +32,6 @@ func isUsernameSecure(user string) bool {
 	return usernameRule.MatchString(user)
 }
 
-<<<<<<< HEAD
-=======
 func (w *workingdir) checkPerm(file string) error {
 	filename := path.Join(w.Path, file)
 	f, err := os.Open(filename)
@@ -58,7 +56,6 @@ func (w *workingdir) checkPerm(file string) error {
 	return nil
 }
 
->>>>>>> upstream/master
 func (w *workingdir) fullpath(file string) string {
 	return path.Join(w.Path, file)
 }

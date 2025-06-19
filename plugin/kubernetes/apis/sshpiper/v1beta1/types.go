@@ -20,17 +20,6 @@ type PipeSpec struct {
 }
 
 type FromSpec struct {
-<<<<<<< HEAD
-	Username              string `json:"username"`
-	UsernameRegexMatch    bool   `json:"username_regex_match,omitempty"`
-	AuthorizedKeysData    string `json:"authorized_keys_data,omitempty"`
-	HtpasswdData          string `json:"htpasswd_data,omitempty"`
-	AuthorizedKeysFile    string `json:"authorized_keys_file,omitempty"`
-	HtpasswdFile          string `json:"htpasswd_file,omitempty"`
-	TrustedUserCAKeysData string `json:"trusted_user_ca_keys_data,omitempty"`
-	TrustedUserCAKeysFile string `json:"trusted_user_ca_keys_file,omitempty"`
-	VaultKVPath           string `json:"vault_kv_path,omitempty"`
-=======
 	Username             string                      `json:"username"`
 	UsernameRegexMatch   bool                        `json:"username_regex_match,omitempty"`
 	AuthorizedKeysData   string                      `json:"authorized_keys_data,omitempty"`
@@ -38,7 +27,6 @@ type FromSpec struct {
 	AuthorizedKeysSecret corev1.LocalObjectReference `json:"authorized_keys_secret,omitempty"`
 	HtpasswdData         string                      `json:"htpasswd_data,omitempty"`
 	HtpasswdFile         string                      `json:"htpasswd_file,omitempty"`
->>>>>>> upstream/master
 }
 
 type ToSpec struct {

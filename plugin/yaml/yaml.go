@@ -22,17 +22,6 @@ func (f yamlPipeFrom) SupportPublicKey() bool {
 }
 
 type yamlPipeTo struct {
-<<<<<<< HEAD
-	Username       string                 `yaml:"username,omitempty"`
-	Host           string                 `yaml:"host"`
-	Password       string                 `yaml:"password,omitempty"`
-	PrivateKey     string                 `yaml:"private_key,omitempty"`
-	PrivateKeyData string                 `yaml:"private_key_data,omitempty"`
-	KnownHosts     libplugin.ListOrString `yaml:"known_hosts,omitempty"`
-	KnownHostsData libplugin.ListOrString `yaml:"known_hosts_data,omitempty"`
-	IgnoreHostkey  bool                   `yaml:"ignore_hostkey,omitempty"`
-	VaultKVPath    string                 `yaml:"vault_kv_path,omitempty"`
-=======
 	Username       string       `yaml:"username,omitempty"`
 	Host           string       `yaml:"host"`
 	Password       string       `yaml:"password,omitempty"`
@@ -73,7 +62,6 @@ func (l *listOrString) UnmarshalYAML(value *yaml.Node) error {
 		return nil
 	}
 	return fmt.Errorf("failed to unmarshal OneOfType")
->>>>>>> upstream/master
 }
 
 type yamlPipe struct {
