@@ -65,13 +65,13 @@ func main() {
 			}()
 
 			return &libplugin.PluginConfig{
-				NoClientAuthCallback: func(conn libplugin.PluginConnMetadata) (*libplugin.Upstream, error) {
+				NoClientAuthCallback: func(conn libplugin.ConnMetadata) (*libplugin.Upstream, error) {
 					// in case someone put the failtoban plugin before other plugins
 					return &libplugin.Upstream{
 						Auth: libplugin.AuthNextPluginCreate(map[string]string{}),
 					}, nil
 				},
-				NewConnectionCallback: func(conn libplugin.PluginConnMetadata) error {
+				NewConnectionCallback: func(conn libplugin.ConnMetadata) error {
 					if logOnly {
 						return nil
 					}
@@ -90,7 +90,7 @@ func main() {
 					}
 					return nil
 				},
-				UpstreamAuthFailureCallback: func(conn libplugin.PluginConnMetadata, method string, err error, allowmethods []string) {
+				UpstreamAuthFailureCallback: func(conn libplugin.ConnMetadata, method string, err error, allowmethods []string) {
 					ip, _, _ := net.SplitHostPort(conn.RemoteAddr())
 					ip0, _ := netip.ParseAddr(ip)
 					if whitelist != nil && whitelist.Contains(ip0) {

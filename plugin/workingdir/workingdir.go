@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"path"
 	"regexp"
@@ -22,10 +23,12 @@ type workingdir struct {
 var usernameRule *regexp.Regexp = regexp.MustCompile("^[a-z_][-a-z0-9_]{0,31}$")
 
 const (
-	userAuthorizedKeysFile = "authorized_keys"
-	userKeyFile            = "id_rsa"
-	userUpstreamFile       = "sshpiper_upstream"
-	userKnownHosts         = "known_hosts"
+	userAuthorizedKeysFile    = "authorized_keys"
+	userKeyFile               = "id_rsa"
+	userUpstreamFile          = "sshpiper_upstream"
+	userKnownHosts            = "known_hosts"
+	userPasswordFile          = "password"
+	userTrustedUserCAKeysFile = "trusted_user_ca_keys"
 )
 
 func isUsernameSecure(user string) bool {

@@ -60,16 +60,16 @@ func main() {
 			}
 
 			return &libplugin.PluginConfig{
-				NewConnectionCallback: func(conn libplugin.PluginConnMetadata) error {
+				NewConnectionCallback: func(conn libplugin.ConnMetadata) error {
 					return rpcclient.Call("TestPlugin.NewConnection", "", nil)
 				},
-				PipeStartCallback: func(conn libplugin.PluginConnMetadata) {
+				PipeStartCallback: func(conn libplugin.ConnMetadata) {
 					rpcclient.Call("TestPlugin.PipeStart", "", nil)
 				},
-				PipeErrorCallback: func(conn libplugin.PluginConnMetadata, err error) {
+				PipeErrorCallback: func(conn libplugin.ConnMetadata, err error) {
 					rpcclient.Call("TestPlugin.PipeError", err.Error(), nil)
 				},
-				PasswordCallback: func(conn libplugin.PluginConnMetadata, password []byte) (*libplugin.Upstream, error) {
+				PasswordCallback: func(conn libplugin.ConnMetadata, password []byte) (*libplugin.Upstream, error) {
 					var newpass string
 					err := rpcclient.Call("TestPlugin.Password", string(password), &newpass)
 					if err != nil {

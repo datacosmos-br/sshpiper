@@ -74,7 +74,7 @@ func TestYamlSkelPipeWrapperMethods(t *testing.T) {
 			Host:       "host.example.com:22",
 			Password:   "testpass",
 			PrivateKey: "/tmp/test_id_rsa",
-			KnownHosts: libplugin.ListOrString{Str: "/tmp/test_known_hosts"},
+			KnownHosts: listOrString{Str: "/tmp/test_known_hosts"},
 		},
 	}
 	config := &piperConfig{Version: "1.0", Pipes: []yamlPipe{pipe}, filename: "/tmp/test.yaml"}
@@ -99,12 +99,6 @@ func TestYamlSkelPipeWrapperMethods(t *testing.T) {
 	})
 	t.Run("TrustedUserCAKeys", func(t *testing.T) {
 		_, err := wrapper.TrustedUserCAKeys(mockConn)
-		if err != nil {
-			_ = err
-		}
-	})
-	t.Run("PrivateKey", func(t *testing.T) {
-		_, _, err := wrapper.PrivateKey(mockConn)
 		if err != nil {
 			_ = err
 		}

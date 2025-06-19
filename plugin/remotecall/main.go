@@ -112,14 +112,14 @@ func createConfig(c *cli.Context) (*libplugin.PluginConfig, error) {
 	}
 
 	return &libplugin.PluginConfig{
-		PublicKeyCallbackNew: func(conn libplugin.PluginConnMetadata, key []byte, keytype string) (*libplugin.Upstream, error) {
+		PublicKeyCallbackNew: func(conn libplugin.ConnMetadata, key []byte, keytype string) (*libplugin.Upstream, error) {
 			return getPublicKeyCallback(conn, key, keytype, caller)
 		},
 	}, nil
 }
 
 func getPublicKeyCallback(
-	conn libplugin.PluginConnMetadata,
+	conn libplugin.ConnMetadata,
 	key []byte,
 	keytype string,
 	caller *RemoteCall,

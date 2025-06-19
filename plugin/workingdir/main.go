@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	libplugin.CreateAndRunPluginTemplate(&libplugin.PluginTemplate{
+	libplugin.RunPluginEntrypoint(&libplugin.PluginEntrypoint{
 		Name:  "workingdir",
 		Usage: "sshpiperd workingdir plugin",
 		Flags: []cli.Flag{
@@ -53,7 +53,7 @@ func main() {
 				EnvVars: []string{"SSHPIPERD_WORKINGDIR_CHECKTOTP"},
 			},
 		},
-		CreateConfig: func(c *cli.Context) (*libplugin.SshPiperPluginConfig, error) {
+		CreateConfig: func(c *cli.Context) (*libplugin.PluginConfig, error) {
 			fac := workdingdirFactory{
 				root:             c.String("root"),
 				allowBadUsername: c.Bool("allow-baduser-name"),
@@ -83,7 +83,7 @@ func main() {
 				return auth, nil
 			}
 
-			config.KeyboardInteractiveCallback = func(conn libplugin.PluginConnMetadata, client libplugin.KeyboardInteractiveChallenge) (*libplugin.Upstream, error) {
+			config.KeyboardInteractiveCallback = func(conn libplugin.ConnMetadata, client libplugin.KeyboardInteractiveChallenge) (*libplugin.Upstream, error) {
 				user := conn.User()
 
 				if !fac.allowBadUsername {

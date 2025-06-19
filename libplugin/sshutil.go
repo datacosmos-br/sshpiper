@@ -46,7 +46,7 @@ func VerifyHostKeyFromKnownHosts(knownhostsData io.Reader, hostname, netaddr str
 
 // MatchAndValidateCACert validates an SSH certificate against trusted CA data.
 // Returns an error if the certificate is not valid or not signed by a trusted CA.
-func MatchAndValidateCACert(conn PluginConnMetadata, pubKey ssh.PublicKey, trustedCAData []byte) error {
+func MatchAndValidateCACert(conn ConnMetadata, pubKey ssh.PublicKey, trustedCAData []byte) error {
 	cert, ok := pubKey.(*ssh.Certificate)
 	if !ok {
 		return errors.New("not a certificate")
@@ -78,8 +78,8 @@ func ParseAuthorizedKey(data []byte) (ssh.PublicKey, error) {
 
 // KnownHostsLoader returns a closure for known_hosts loading from file, base64, or Vault.
 // Accepts ListOrString for both file and data, and allows per-connection variable expansion.
-func KnownHostsLoader(knownHostsFiles, knownHostsData ListOrString, vars map[string]string, baseDir string) func(conn PluginConnMetadata) ([]byte, error) {
-	return func(conn PluginConnMetadata) ([]byte, error) {
+func KnownHostsLoader(knownHostsFiles, knownHostsData ListOrString, vars map[string]string, baseDir string) func(conn ConnMetadata) ([]byte, error) {
+	return func(conn ConnMetadata) ([]byte, error) {
 		// Merge vars with connection metadata if needed
 		return LoadFileOrBase64Many(
 			knownHostsFiles,

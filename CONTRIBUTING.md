@@ -85,7 +85,7 @@ Take `fixed` as an example:
 
 ```
 &libplugin.PluginConfig{
-    PasswordCallback: func(conn libplugin.PluginConnMetadata, password []byte) (*libplugin.Upstream, error) {
+    PasswordCallback: func(conn libplugin.ConnMetadata, password []byte) (*libplugin.Upstream, error) {
         return &libplugin.Upstream{
             Host:          host,
             Port:          int32(port),

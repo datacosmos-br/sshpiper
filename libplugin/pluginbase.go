@@ -3,7 +3,7 @@
 // Provides the core plugin server, configuration, and gRPC interface for SSHPiper plugins, including connection metadata, callback hooks, and helpers for plugin instantiation.
 //
 // # Features
-//   - PluginConnMetadata: Interface for connection metadata passed to plugin callbacks
+//   - ConnMetadata: Interface for connection metadata passed to plugin callbacks
 //   - PluginConfig: Struct holding all plugin callback hooks
 //   - PluginServer: Interface for plugin server implementations
 //   - PluginServerFromStdio, PluginServerFromGRPC: Helpers to create plugin servers
@@ -30,7 +30,7 @@ import (
 	status "google.golang.org/grpc/status"
 )
 
-// PluginConnMetadata provides metadata about the SSH connection for plugin callbacks.
+// ConnMetadata provides metadata about the SSH connection for plugin callbacks.
 //
 // Example usage:
 //
@@ -38,7 +38,7 @@ import (
 //	addr := conn.RemoteAddr()
 //	id := conn.UniqueID()
 //	val := conn.GetMeta("key")
-type PluginConnMetadata interface {
+type ConnMetadata interface {
 	User() string
 	RemoteAddr() string
 	UniqueID() string
@@ -57,31 +57,31 @@ type KeyboardInteractiveChallenge func(user, instruction string, question string
 //	  PublicKeyCallback: myPublicKeyCallback,
 //	}
 type PluginConfig struct {
-	NewConnectionCallback func(conn PluginConnMetadata) error
+	NewConnectionCallback func(conn ConnMetadata) error
 
-	NextAuthMethodsCallback func(conn PluginConnMetadata) ([]string, error)
+	NextAuthMethodsCallback func(conn ConnMetadata) ([]string, error)
 
-	NoClientAuthCallback func(conn PluginConnMetadata) (*Upstream, error)
+	NoClientAuthCallback func(conn ConnMetadata) (*Upstream, error)
 
-	PasswordCallback func(conn PluginConnMetadata, password []byte) (*Upstream, error)
+	PasswordCallback func(conn ConnMetadata, password []byte) (*Upstream, error)
 
-	PublicKeyCallback func(conn PluginConnMetadata, key []byte) (*Upstream, error)
+	PublicKeyCallback func(conn ConnMetadata, key []byte) (*Upstream, error)
 
-	PublicKeyCallbackNew func(conn PluginConnMetadata, key []byte, keyType string) (*Upstream, error)
+	PublicKeyCallbackNew func(conn ConnMetadata, key []byte, keyType string) (*Upstream, error)
 
-	KeyboardInteractiveCallback func(conn PluginConnMetadata, client KeyboardInteractiveChallenge) (*Upstream, error)
+	KeyboardInteractiveCallback func(conn ConnMetadata, client KeyboardInteractiveChallenge) (*Upstream, error)
 
-	UpstreamAuthFailureCallback func(conn PluginConnMetadata, method string, err error, allowmethods []string)
+	UpstreamAuthFailureCallback func(conn ConnMetadata, method string, err error, allowmethods []string)
 
-	BannerCallback func(conn PluginConnMetadata) string
+	BannerCallback func(conn ConnMetadata) string
 
-	VerifyHostKeyCallback func(conn PluginConnMetadata, hostname, netaddr string, key []byte) error
+	VerifyHostKeyCallback func(conn ConnMetadata, hostname, netaddr string, key []byte) error
 
 	PipeCreateErrorCallback func(remoteAddr string, err error)
 
-	PipeStartCallback func(conn PluginConnMetadata)
+	PipeStartCallback func(conn ConnMetadata)
 
-	PipeErrorCallback func(conn PluginConnMetadata, err error)
+	PipeErrorCallback func(conn ConnMetadata, err error)
 
 	GrpcRemoteSignerFactory grpcsigner.SignerFactory
 }
@@ -497,7 +497,7 @@ func (s *server) PipeCreateErrorNotice(ctx context.Context, req *PipeCreateError
 	return &PipeCreateErrorNoticeResponse{}, nil
 }
 
-// Adapter methods for generated ConnMeta to implement PluginConnMetadata interface.
+// Adapter methods for generated ConnMeta to implement ConnMetadata interface.
 func (c *ConnMeta) User() string       { return c.GetUserName() }
 func (c *ConnMeta) RemoteAddr() string { return c.GetFromAddr() }
 func (c *ConnMeta) UniqueID() string   { return c.GetUniqId() }

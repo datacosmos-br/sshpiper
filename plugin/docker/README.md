@@ -1,6 +1,34 @@
-# docker plugin for sshpiperd
+# Docker Plugin
 
-This plugin queries dockerd for containers and creates pipes to them.
+The Docker plugin provides SSH access to Docker containers through SSHPiper.
+
+## Features
+
+- **Standardized Authentication**: Uses `libplugin.StandardTestPassword` for consistent htpasswd-based authentication
+- **Standardized Key Management**: Uses `libplugin.StandardAuthorizedKeys` and `libplugin.StandardTrustedUserCAKeys` for SSH key handling
+- **Standardized Connection Security**: Uses `libplugin.StandardKnownHosts` and `libplugin.StandardIgnoreHostKey` for host verification
+- **Standardized Private Keys**: Uses `libplugin.StandardPrivateKey` for upstream authentication
+- **Container Integration**: Seamless integration with Docker containers and SSH daemon
+
+## Configuration
+
+All authentication and key management fields support multiple formats:
+
+- `*Data` fields: Base64-encoded or raw data
+- `*File` fields: File paths with environment variable expansion
+- Automatic fallback between base64 and raw data formats
+
+## Implementation
+
+The plugin uses the standardized `libplugin.Standard*` helpers for all common operations, ensuring consistency across all SSHPiper plugins and eliminating code duplication.
+
+## Authentication Methods
+
+- **Password Authentication**: htpasswd-based using `StandardTestPassword`
+- **Public Key Authentication**: SSH keys using `StandardAuthorizedKeys` 
+- **Certificate Authentication**: CA-based using `StandardTrustedUserCAKeys`
+
+All methods follow the same standardized patterns and error handling.
 
 ## Usage
 
@@ -34,22 +62,22 @@ Docker connection is configured with environment variables below:
 
 <https://pkg.go.dev/github.com/docker/docker/client#FromEnv>
 
-* DOCKER_HOST: to set the url to the docker server, default "unix:///var/run/docker.sock"
-* DOCKER_API_VERSION: to set the version of the API to reach, leave empty for latest.
-* DOCKER_CERT_PATH: to load the TLS certificates from.
-* DOCKER_TLS_VERIFY: to enable or disable TLS verification, off by default.
+- DOCKER_HOST: to set the url to the docker server, default "unix:///var/run/docker.sock"
+- DOCKER_API_VERSION: to set the version of the API to reach, leave empty for latest.
+- DOCKER_CERT_PATH: to load the TLS certificates from.
+- DOCKER_TLS_VERIFY: to enable or disable TLS verification, off by default.
 
 ### Container Labels for plugin
 
-* `sshpiper.username`: username to filter containers by `downstream`'s username. Leave empty to auth with `authorized_keys` only.
-* `sshpiper.container_username`: username of container's sshd
-* `sshpiper.port`: port of container's sshd
-* `sshpiper.htpasswd_data` / `sshpiper.htpasswd_file`: base64 or file path for htpasswd data (password auth)
-* `sshpiper.authorized_keys_data` / `sshpiper.authorized_keys_file`: base64 or file path for authorized_keys (public key auth)
-* `sshpiper.trusted_user_ca_keys_data` / `sshpiper.trusted_user_ca_keys_file`: base64 or file path for CA keys (certificate auth)
-* `sshpiper.known_hosts_data` / `sshpiper.known_hosts_file`: base64 or file path for known_hosts (host key verification)
-* `sshpiper.private_key_data` / `sshpiper.private_key_file`: base64 or file path for private key (upstream auth)
-* `sshpiper.vault_kv_path`: Vault path for secret loading (password, private key, etc.)
+- `sshpiper.username`: username to filter containers by `downstream`'s username. Leave empty to auth with `authorized_keys` only.
+- `sshpiper.container_username`: username of container's sshd
+- `sshpiper.port`: port of container's sshd
+- `sshpiper.htpasswd_data` / `sshpiper.htpasswd_file`: base64 or file path for htpasswd data (password auth)
+- `sshpiper.authorized_keys_data` / `sshpiper.authorized_keys_file`: base64 or file path for authorized_keys (public key auth)
+- `sshpiper.trusted_user_ca_keys_data` / `sshpiper.trusted_user_ca_keys_file`: base64 or file path for CA keys (certificate auth)
+- `sshpiper.known_hosts_data` / `sshpiper.known_hosts_file`: base64 or file path for known_hosts (host key verification)
+- `sshpiper.private_key_data` / `sshpiper.private_key_file`: base64 or file path for private key (upstream auth)
+- `sshpiper.vault_kv_path`: Vault path for secret loading (password, private key, etc.)
 
 ### Vault Integration
 

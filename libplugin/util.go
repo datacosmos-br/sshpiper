@@ -34,7 +34,7 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v3"
 )
 
 // SplitHostPortForSSH splits an address into host and port, defaulting to port 22 if not specified.

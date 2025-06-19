@@ -28,69 +28,16 @@ import (
 // It delegates all generic SkelPipe logic to libplugin and provides Docker-specific connection matching.
 type dockerSkelPipeWrapper struct {
 	libplugin.SkelPipeWrapper
+	plugin *plugin
+	pipe   *dockerPipe
 }
 
-type skelpipeFromWrapper struct {
-	skelpipeWrapper
+type dockerSkelPipeFromWrapper struct {
+	dockerSkelPipeWrapper
 }
 
-type skelpipePasswordWrapper struct {
-	skelpipeFromWrapper
-}
-
-type skelpipePublicKeyWrapper struct {
-	skelpipeFromWrapper
-}
-
-type skelpipeToWrapper struct {
-	skelpipeWrapper
-
-	username string
-}
-
-type skelpipeToPasswordWrapper struct {
-	skelpipeToWrapper
-}
-
-type skelpipeToPrivateKeyWrapper struct {
-	skelpipeToWrapper
-}
-
-func (s *skelpipeWrapper) From() []skel.SkelPipeFrom {
-	w := skelpipeFromWrapper{
-		skelpipeWrapper: *s,
-	}
-
-	if s.pipe.PrivateKey != "" || s.pipe.AuthorizedKeys != "" {
-		return []skel.SkelPipeFrom{&skelpipePublicKeyWrapper{
-			skelpipeFromWrapper: w,
-		}}
-	} else {
-		return []skel.SkelPipeFrom{&skelpipePasswordWrapper{
-			skelpipeFromWrapper: w,
-		}}
-	}
-}
-
-func (s *skelpipeToWrapper) User(conn libplugin.ConnMetadata) string {
-	return s.username
-}
-
-func (s *skelpipeToWrapper) Host(conn libplugin.ConnMetadata) string {
-	return s.pipe.Host
-}
-
-func (s *skelpipeToWrapper) IgnoreHostKey(conn libplugin.ConnMetadata) bool {
-	return true // TODO support this
-}
-
-func (s *skelpipeToWrapper) KnownHosts(conn libplugin.ConnMetadata) ([]byte, error) {
-	return nil, nil // TODO support this
-}
-
-func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (skel.SkelPipeTo, error) {
+func (s *dockerSkelPipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (skel.SkelPipeTo, error) {
 	user := conn.User()
-
 	matched := s.pipe.ClientUsername == user || s.pipe.ClientUsername == ""
 	targetuser := s.pipe.ContainerUsername
 
@@ -99,60 +46,113 @@ func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (skel.SkelP
 	}
 
 	if matched {
-
-		if s.pipe.PrivateKey != "" {
-			return &skelpipeToPrivateKeyWrapper{
-				skelpipeToWrapper: skelpipeToWrapper{
-					skelpipeWrapper: s.skelpipeWrapper,
-					username:        targetuser,
-				},
-			}, nil
+		wrapper := &dockerSkelPipeToWrapper{
+			dockerSkelPipeWrapper: s.dockerSkelPipeWrapper,
+			username:              targetuser,
 		}
-		return nil, nil
+
+		if s.pipe.PrivateKeyData != "" || s.pipe.PrivateKeyFile != "" {
+			return &dockerSkelPipeToPrivateKeyWrapper{dockerSkelPipeToWrapper: *wrapper}, nil
+		} else {
+			return &dockerSkelPipeToPasswordWrapper{dockerSkelPipeToWrapper: *wrapper}, nil
+		}
 	}
-	return libplugin.FromGeneric(s.Plugin, pipe, fromSpecs, matchConnFn, nil)
+	return nil, nil
 }
 
-// TestPassword delegates to libplugin.CheckHtpasswdPasswordFields for password authentication.
-func (s *dockerSkelPipeWrapper) TestPassword(conn libplugin.PluginConnMetadata, password []byte) (bool, error) {
-	p := s.Pipe.(*dockerPipe)
-	return libplugin.CheckHtpasswdPasswordFields(p.HtpasswdData, p.HtpasswdFile, conn.User(), password)
+type dockerSkelPipePasswordWrapper struct {
+	dockerSkelPipeFromWrapper
 }
 
-// AuthorizedKeys loads authorized keys using libplugin.LoadSecretFieldWithFallback.
-func (s *dockerSkelPipeWrapper) AuthorizedKeys(conn libplugin.PluginConnMetadata) ([]byte, error) {
-	p := s.Pipe.(*dockerPipe)
-	return libplugin.LoadSecretFieldWithFallback(p.VaultKVPath, "authorized_keys", p.AuthorizedKeysFile, p.AuthorizedKeysData, map[string]string{"DOWNSTREAM_USER": conn.User()}, filepath.Dir("/"))
+type dockerSkelPipePublicKeyWrapper struct {
+	dockerSkelPipeFromWrapper
 }
 
-// TrustedUserCAKeys loads trusted CA keys using libplugin.LoadSecretFieldWithFallback.
-func (s *dockerSkelPipeWrapper) TrustedUserCAKeys(conn libplugin.PluginConnMetadata) ([]byte, error) {
-	p := s.Pipe.(*dockerPipe)
-	return libplugin.LoadSecretFieldWithFallback(p.VaultKVPath, "trusted_user_ca_keys", p.TrustedUserCAKeysFile, p.TrustedUserCAKeysData, map[string]string{"DOWNSTREAM_USER": conn.User()}, filepath.Dir("/"))
+type dockerSkelPipeToWrapper struct {
+	dockerSkelPipeWrapper
+	username string
 }
 
-// KnownHosts loads known hosts using libplugin.LoadSecretFieldWithFallback.
-func (s *dockerSkelPipeWrapper) KnownHosts(conn libplugin.PluginConnMetadata) ([]byte, error) {
-	p := s.Pipe.(*dockerPipe)
-	return libplugin.LoadSecretFieldWithFallback(p.VaultKVPath, "known_hosts", p.KnownHostsFile, p.KnownHostsData, map[string]string{"DOWNSTREAM_USER": conn.User()}, filepath.Dir("/"))
+func (s *dockerSkelPipeToWrapper) User(conn libplugin.ConnMetadata) string {
+	return s.username
 }
 
-// PrivateKey loads the private key for upstream authentication using file, data, or Vault.
-// Supports dockerPipe.PrivateKeyFile, PrivateKeyData, and VaultKVPath.
-func (s *dockerSkelPipeWrapper) PrivateKey(conn libplugin.PluginConnMetadata) ([]byte, []byte, error) {
+func (s *dockerSkelPipeToWrapper) Host(conn libplugin.ConnMetadata) string {
+	return s.pipe.Host
+}
+
+func (s *dockerSkelPipeToWrapper) IgnoreHostKey(conn libplugin.ConnMetadata) bool {
+	// Use standard helper for host key ignoring logic
+	return libplugin.StandardIgnoreHostKey(false, s.pipe.KnownHostsData, s.pipe.KnownHostsFile)
+}
+
+func (s *dockerSkelPipeToWrapper) KnownHosts(conn libplugin.ConnMetadata) ([]byte, error) {
+	// Use standard helper for known hosts loading
+	envVars := map[string]string{"DOWNSTREAM_USER": conn.User()}
+	return libplugin.StandardKnownHosts(s.pipe.KnownHostsData, s.pipe.KnownHostsFile, envVars, filepath.Dir("/"))
+}
+
+type dockerSkelPipeToPasswordWrapper struct {
+	dockerSkelPipeToWrapper
+}
+
+type dockerSkelPipeToPrivateKeyWrapper struct {
+	dockerSkelPipeToWrapper
+}
+
+func (s *dockerSkelPipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([]byte, []byte, error) {
+	// Use standard helper for private key loading
+	envVars := map[string]string{"DOWNSTREAM_USER": conn.User()}
+	return libplugin.StandardPrivateKey(s.pipe.PrivateKeyData, s.pipe.PrivateKeyFile, envVars, filepath.Dir("/"))
+}
+
+// TestPassword delegates to libplugin.StandardTestPassword for password authentication.
+func (s *dockerSkelPipeWrapper) TestPassword(conn libplugin.ConnMetadata, password []byte) (bool, error) {
 	p := s.Pipe.(*dockerPipe)
-	key, err := libplugin.LoadSecretFieldWithFallback(p.VaultKVPath, "private_key", p.PrivateKeyFile, p.PrivateKeyData, map[string]string{"DOWNSTREAM_USER": conn.User()}, filepath.Dir("/"))
-	if err != nil {
-		return nil, nil, err
+	return libplugin.StandardTestPassword(p.HtpasswdData, p.HtpasswdFile, conn.User(), password)
+}
+
+// AuthorizedKeys loads authorized keys using libplugin.StandardAuthorizedKeys.
+func (s *dockerSkelPipeWrapper) AuthorizedKeys(conn libplugin.ConnMetadata) ([]byte, error) {
+	p := s.Pipe.(*dockerPipe)
+	envVars := map[string]string{"DOWNSTREAM_USER": conn.User()}
+	return libplugin.StandardAuthorizedKeys(p.AuthorizedKeysData, p.AuthorizedKeysFile, envVars, filepath.Dir("/"))
+}
+
+// TrustedUserCAKeys loads trusted CA keys using libplugin.StandardTrustedUserCAKeys.
+func (s *dockerSkelPipeWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata) ([]byte, error) {
+	p := s.Pipe.(*dockerPipe)
+	envVars := map[string]string{"DOWNSTREAM_USER": conn.User()}
+	return libplugin.StandardTrustedUserCAKeys(p.TrustedUserCAKeysData, p.TrustedUserCAKeysFile, envVars, filepath.Dir("/"))
+}
+
+// KnownHosts loads known hosts using libplugin.StandardKnownHosts.
+func (s *dockerSkelPipeWrapper) KnownHosts(conn libplugin.ConnMetadata) ([]byte, error) {
+	p := s.Pipe.(*dockerPipe)
+	envVars := map[string]string{"DOWNSTREAM_USER": conn.User()}
+	return libplugin.StandardKnownHosts(p.KnownHostsData, p.KnownHostsFile, envVars, filepath.Dir("/"))
+}
+
+// OverridePassword loads an override password using libplugin.StandardOverridePassword.
+func (s *dockerSkelPipeWrapper) OverridePassword(conn libplugin.ConnMetadata) ([]byte, error) {
+	envVars := map[string]string{"DOWNSTREAM_USER": conn.User()}
+	return libplugin.StandardOverridePassword("", "", envVars, filepath.Dir("/"))
+}
+
+func (s *dockerSkelPipeWrapper) From() []skel.SkelPipeFrom {
+	w := dockerSkelPipeFromWrapper{
+		dockerSkelPipeWrapper: *s,
 	}
-	return key, nil, nil
-}
 
-// OverridePassword loads an override password for upstream authentication using Vault if configured.
-// Supports dockerPipe.VaultKVPath.
-func (s *dockerSkelPipeWrapper) OverridePassword(conn libplugin.PluginConnMetadata) ([]byte, error) {
-	p := s.Pipe.(*dockerPipe)
-	return libplugin.LoadSecretFieldWithFallback(p.VaultKVPath, "password", "", "", map[string]string{"DOWNSTREAM_USER": conn.User()}, filepath.Dir("/"))
+	if s.pipe.PrivateKeyData != "" || s.pipe.PrivateKeyFile != "" || s.pipe.AuthorizedKeysData != "" || s.pipe.AuthorizedKeysFile != "" {
+		return []skel.SkelPipeFrom{&dockerSkelPipePublicKeyWrapper{
+			dockerSkelPipeFromWrapper: w,
+		}}
+	} else {
+		return []skel.SkelPipeFrom{&dockerSkelPipePasswordWrapper{
+			dockerSkelPipeFromWrapper: w,
+		}}
+	}
 }
 
 func (p *plugin) listPipe(_ libplugin.ConnMetadata) ([]skel.SkelPipe, error) {
@@ -163,12 +163,12 @@ func (p *plugin) listPipe(_ libplugin.ConnMetadata) ([]skel.SkelPipe, error) {
 
 	var pipes []skel.SkelPipe
 	for _, pipe := range dpipes {
-		wrapper := &skelpipeWrapper{
-			plugin: p,
-			pipe:   &pipe,
+		wrapper := &dockerSkelPipeWrapper{
+			SkelPipeWrapper: libplugin.NewSkelPipeWrapper(p, &pipe),
+			plugin:          p,
+			pipe:            &pipe,
 		}
 		pipes = append(pipes, wrapper)
-
 	}
 
 	return pipes, nil

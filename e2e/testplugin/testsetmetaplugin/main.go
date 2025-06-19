@@ -20,7 +20,7 @@ func main() {
 		CreateConfig: func(ctx *cli.Context) (*libplugin.PluginConfig, error) {
 			return &libplugin.PluginConfig{
 
-				NoClientAuthCallback: func(conn libplugin.PluginConnMetadata) (*libplugin.Upstream, error) {
+				NoClientAuthCallback: func(conn libplugin.ConnMetadata) (*libplugin.Upstream, error) {
 
 					return &libplugin.Upstream{
 						Auth: libplugin.AuthNextPluginCreate(map[string]string{

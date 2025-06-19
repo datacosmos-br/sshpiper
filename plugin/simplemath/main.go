@@ -17,7 +17,7 @@ func main() {
 		Usage: "sshpiperd simplemath plugin, do math before ssh login",
 		CreateConfig: func(_ *cli.Context) (*libplugin.PluginConfig, error) {
 			return &libplugin.PluginConfig{
-				KeyboardInteractiveCallback: func(conn libplugin.PluginConnMetadata, client libplugin.KeyboardInteractiveChallenge) (*libplugin.Upstream, error) {
+				KeyboardInteractiveCallback: func(conn libplugin.ConnMetadata, client libplugin.KeyboardInteractiveChallenge) (*libplugin.Upstream, error) {
 					_, _ = client("", "lets do math", "", false)
 
 					for {

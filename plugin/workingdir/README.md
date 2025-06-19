@@ -1,3 +1,37 @@
+# Workingdir Plugin
+
+The Workingdir plugin provides SSH access based on directory structures and file-based configuration.
+
+## Features
+
+- **Standardized Authentication**: Uses `libplugin.StandardTestPassword` for consistent htpasswd-based authentication
+- **Standardized Key Management**: Uses `libplugin.StandardAuthorizedKeys` and `libplugin.StandardTrustedUserCAKeys` for SSH key handling  
+- **Standardized Connection Security**: Uses `libplugin.StandardKnownHosts` and `libplugin.StandardIgnoreHostKey` for host verification
+- **Standardized Private Keys**: Uses `libplugin.StandardPrivateKey` for upstream authentication
+- **Directory-based Configuration**: File-based configuration with working directory isolation
+- **Environment Variable Expansion**: Automatic expansion of `${DOWNSTREAM_USER}` in file paths
+
+## Implementation
+
+The plugin uses the standardized `libplugin.Standard*` helpers for all common operations, ensuring consistency across all SSHPiper plugins and eliminating code duplication. All file operations include proper environment variable expansion and base directory resolution.
+
+## Authentication Methods
+
+- **Password Authentication**: htpasswd file-based using `StandardTestPassword`
+- **Public Key Authentication**: authorized_keys file-based using `StandardAuthorizedKeys`
+- **Certificate Authentication**: CA keys file-based using `StandardTrustedUserCAKeys`
+
+## Configuration Files
+
+All configuration files support:
+
+- Automatic environment variable expansion
+- Relative path resolution based on working directory
+- Existence checks before processing
+- Consistent error handling and logging
+
+The plugin maintains workingdir-specific behavior while using standardized helpers for all common operations.
+
 # Working Directory plugin for sshpiperd
 
 `Working Dir` is a `/home`-like directory.
@@ -38,12 +72,12 @@ sshpiperd workingdir --root /var/sshpiper
 
 *These file MUST NOT be accessible to group or other. (chmod og-rwx filename)*
 
-* sshpiper_upstream
+- sshpiper_upstream
 
-  * line starts with `#` are treated as comment
-  * only the first not comment line will be parsed
-  * if no port was given, 22 will be used as default
-  * if `user@` was defined, username to upstream will be the mapped one
+  - line starts with `#` are treated as comment
+  - only the first not comment line will be parsed
+  - if no port was given, 22 will be used as default
+  - if `user@` was defined, username to upstream will be the mapped one
 
 ```bash
 # comment
@@ -59,15 +93,15 @@ google.com:12345
 
 ```
 
-* authorized_keys
+- authorized_keys
   
    OpenSSH format `authorized_keys` (see `~/.ssh/authorized_keys`). `downstream`'s public key must be in this file to get verified in order to use `id_rsa` to login to `upstream`.
 
-* id_rsa
+- id_rsa
 
    RSA key for upstream.
 
-* known_hosts
+- known_hosts
 
    when `--strict-hostkey` is set, upstream server's public key must present in known_hosts
 
@@ -101,7 +135,7 @@ for example:
 
 ## FAQ
 
-* Q: Why sshpiperd still asks for password even I disabled password auth in upstream (different behavior from `v0`)
+- Q: Why sshpiperd still asks for password even I disabled password auth in upstream (different behavior from `v0`)
    A: You may want `--no-password-auth`, see <https://github.com/tg123/sshpiper/issues/97>
-* Q: What if I want to use a different key type for the SSH server instead of RSA?
+- Q: What if I want to use a different key type for the SSH server instead of RSA?
    A: The [`workingdir` plugin hard-codes for `id_rsa` for simplicity](https://github.com/tg123/sshpiper/issues/554#issue-2959158335). Consider a different plugin like `yaml` if you need more flexibility.

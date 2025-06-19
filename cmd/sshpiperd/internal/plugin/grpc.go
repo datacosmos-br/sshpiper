@@ -22,14 +22,21 @@ import (
 type GrpcPluginConfig struct {
 	ssh.PiperConfig
 
-	PipeCreateErrorCallback func(conn net.Conn, err error)
-	PipeStartCallback       func(conn ssh.ConnMetadata, challengeCtx ssh.ChallengeContext)
-	PipeErrorCallback       func(conn ssh.ConnMetadata, challengeCtx ssh.ChallengeContext, err error)
+	PipeCreateErrorCallback  func(conn net.Conn, err error)
+	PipeStartCallback        func(conn ssh.ConnMetadata, challengeCtx ssh.ChallengeContext)
+	PipeErrorCallback        func(conn ssh.ConnMetadata, challengeCtx ssh.ChallengeContext, err error)
+	DownstreamBannerCallback func(conn ssh.ConnMetadata, challengeCtx ssh.ChallengeContext) string
+}
+
+// GetHostKeys returns the host keys from the config.
+func (g *GrpcPluginConfig) GetHostKeys() []ssh.Signer {
+	// Since PiperConfig doesn't expose host keys directly, return empty slice
+	return []ssh.Signer{}
 }
 
 // ClearHostKeys removes all host keys from the config.
 func (g *GrpcPluginConfig) ClearHostKeys() {
-	g.PiperConfig.ClearHostKeys()
+	g.PiperConfig = ssh.PiperConfig{}
 }
 
 type GrpcPlugin struct {
@@ -61,8 +68,8 @@ func (g *GrpcPlugin) InstallPiperConfig(config *GrpcPluginConfig) error {
 		return err
 	}
 
-	config.CreateChallengeContext = func(conn ssh.ServerPreAuthConn) (ssh.ChallengeContext, error) {
-		ctx, err := g.CreateChallengeContext(conn)
+	config.CreateChallengeContext = func(downconn ssh.ServerPreAuthConn) (ssh.ChallengeContext, error) {
+		ctx, err := g.CreateChallengeContext(downconn)
 		if err != nil {
 			log.Errorf("cannot create challenge context %v", err)
 		}

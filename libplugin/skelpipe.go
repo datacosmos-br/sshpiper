@@ -15,6 +15,24 @@
 //	keys, err := GetAllAuthorizedKeysFromSpecs(specs, conn)
 package libplugin
 
+// SkelPipeToInterface is a local interface to avoid import cycle
+type SkelPipeToInterface interface {
+	Host(conn ConnMetadata) string
+	User(conn ConnMetadata) string
+	IgnoreHostKey(conn ConnMetadata) bool
+	KnownHosts(conn ConnMetadata) ([]byte, error)
+}
+
+// SkelPipeFromInterface is a local interface to avoid import cycle
+type SkelPipeFromInterface interface {
+	MatchConn(conn ConnMetadata) (SkelPipeToInterface, error)
+}
+
+// SkelPipeInterface is a local interface to avoid import cycle
+type SkelPipeInterface interface {
+	From() []SkelPipeFromInterface
+}
+
 // SkelPipeWrapper is a generic base struct for plugin SkelPipe wrappers.
 // It holds references to the plugin instance and the underlying config/pipe object.
 //
@@ -48,7 +66,7 @@ type SkelPipeToWrapper struct {
 	Username         string
 	Hostname         string
 	IgnoreHostKeyVal bool
-	KnownHostsFn     func(conn PluginConnMetadata) ([]byte, error)
+	KnownHostsFn     func(conn ConnMetadata) ([]byte, error)
 }
 
 // NewSkelPipeToWrapper constructs a new SkelPipeToWrapper.
@@ -56,7 +74,7 @@ type SkelPipeToWrapper struct {
 // Example usage:
 //
 //	to := NewSkelPipeToWrapper(plugin, pipe, username, hostname, ignoreHostKey, knownHostsFn)
-func NewSkelPipeToWrapper(plugin, pipe interface{}, username, hostname string, ignoreHostKey bool, knownHostsFn func(conn PluginConnMetadata) ([]byte, error)) SkelPipeToWrapper {
+func NewSkelPipeToWrapper(plugin, pipe interface{}, username, hostname string, ignoreHostKey bool, knownHostsFn func(conn ConnMetadata) ([]byte, error)) SkelPipeToWrapper {
 	return SkelPipeToWrapper{
 		SkelPipeWrapper:  NewSkelPipeWrapper(plugin, pipe),
 		Username:         username,
@@ -67,22 +85,22 @@ func NewSkelPipeToWrapper(plugin, pipe interface{}, username, hostname string, i
 }
 
 // User returns the upstream username.
-func (s *SkelPipeToWrapper) User(conn PluginConnMetadata) string {
+func (s *SkelPipeToWrapper) User(conn ConnMetadata) string {
 	return s.Username
 }
 
 // Host returns the upstream host.
-func (s *SkelPipeToWrapper) Host(conn PluginConnMetadata) string {
+func (s *SkelPipeToWrapper) Host(conn ConnMetadata) string {
 	return s.Hostname
 }
 
 // IgnoreHostKey returns whether to ignore host key checking.
-func (s *SkelPipeToWrapper) IgnoreHostKey(conn PluginConnMetadata) bool {
+func (s *SkelPipeToWrapper) IgnoreHostKey(conn ConnMetadata) bool {
 	return s.IgnoreHostKeyVal
 }
 
 // KnownHosts returns the known_hosts data for host key verification.
-func (s *SkelPipeToWrapper) KnownHosts(conn PluginConnMetadata) ([]byte, error) {
+func (s *SkelPipeToWrapper) KnownHosts(conn ConnMetadata) ([]byte, error) {
 	if s.KnownHostsFn != nil {
 		return s.KnownHostsFn(conn)
 	}
@@ -96,7 +114,7 @@ func (s *SkelPipeToWrapper) KnownHosts(conn PluginConnMetadata) ([]byte, error) 
 //	from := NewSkelPipeFromWrapper(plugin, pipe, matchConnFn)
 type SkelPipeFromWrapper struct {
 	SkelPipeWrapper
-	MatchConnFn func(conn PluginConnMetadata) (SkelPipeTo, error)
+	MatchConnFn func(conn ConnMetadata) (SkelPipeToInterface, error)
 }
 
 // NewSkelPipeFromWrapper constructs a new SkelPipeFromWrapper.
@@ -104,7 +122,7 @@ type SkelPipeFromWrapper struct {
 // Example usage:
 //
 //	from := NewSkelPipeFromWrapper(plugin, pipe, matchConnFn)
-func NewSkelPipeFromWrapper(plugin, pipe interface{}, matchConnFn func(conn PluginConnMetadata) (SkelPipeTo, error)) SkelPipeFromWrapper {
+func NewSkelPipeFromWrapper(plugin, pipe interface{}, matchConnFn func(conn ConnMetadata) (SkelPipeToInterface, error)) SkelPipeFromWrapper {
 	return SkelPipeFromWrapper{
 		SkelPipeWrapper: NewSkelPipeWrapper(plugin, pipe),
 		MatchConnFn:     matchConnFn,
@@ -112,7 +130,7 @@ func NewSkelPipeFromWrapper(plugin, pipe interface{}, matchConnFn func(conn Plug
 }
 
 // MatchConn delegates to the configured MatchConnFn.
-func (s *SkelPipeFromWrapper) MatchConn(conn PluginConnMetadata) (SkelPipeTo, error) {
+func (s *SkelPipeFromWrapper) MatchConn(conn ConnMetadata) (SkelPipeToInterface, error) {
 	if s.MatchConnFn != nil {
 		return s.MatchConnFn(conn)
 	}
@@ -125,10 +143,10 @@ func (s *SkelPipeFromWrapper) MatchConn(conn PluginConnMetadata) (SkelPipeTo, er
 // Example usage:
 //
 //	froms := FromGeneric(plugin, to, fromSpecs, matchConnFn, knownHostsFn)
-func FromGeneric(plugin, to interface{}, fromSpecs []interface{}, matchConnFn func(from interface{}, conn PluginConnMetadata) (SkelPipeTo, error), knownHostsFn func(to interface{}, conn PluginConnMetadata) ([]byte, error)) []SkelPipeFrom {
-	var froms []SkelPipeFrom
+func FromGeneric(plugin, to interface{}, fromSpecs []interface{}, matchConnFn func(from interface{}, conn ConnMetadata) (SkelPipeToInterface, error), knownHostsFn func(to interface{}, conn ConnMetadata) ([]byte, error)) []SkelPipeFromInterface {
+	var froms []SkelPipeFromInterface
 	for _, f := range fromSpecs {
-		fn := func(conn PluginConnMetadata) (SkelPipeTo, error) {
+		fn := func(conn ConnMetadata) (SkelPipeToInterface, error) {
 			return matchConnFn(f, conn)
 		}
 		from := NewSkelPipeFromWrapper(plugin, f, fn)
@@ -142,12 +160,12 @@ func FromGeneric(plugin, to interface{}, fromSpecs []interface{}, matchConnFn fu
 // Example usage:
 //
 //	pipes, err := ListPipeGeneric(listFn, pluginCtor)
-func ListPipeGeneric(listFn func() ([]interface{}, error), pluginCtor func(interface{}) SkelPipe) ([]SkelPipe, error) {
+func ListPipeGeneric(listFn func() ([]interface{}, error), pluginCtor func(interface{}) SkelPipeInterface) ([]SkelPipeInterface, error) {
 	pipes, err := listFn()
 	if err != nil {
 		return nil, err
 	}
-	var result []SkelPipe
+	var result []SkelPipeInterface
 	for _, pipe := range pipes {
 		result = append(result, pluginCtor(pipe))
 	}

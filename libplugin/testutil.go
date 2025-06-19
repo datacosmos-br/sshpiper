@@ -1,6 +1,6 @@
 package libplugin
 
-// MockConnMetadata is a reusable mock for PluginConnMetadata for use in plugin tests.
+// MockConnMetadata is a reusable mock for ConnMetadata for use in plugin tests.
 type MockConnMetadata struct {
 	UserVal       string
 	RemoteAddrVal string

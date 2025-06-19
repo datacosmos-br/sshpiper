@@ -46,8 +46,8 @@ func LoadSecretFieldWithFallback(vaultPath, field, file, data string, vars map[s
 }
 
 // BuildKnownHostsFn returns a func that loads known_hosts using file/data/vars/dir.
-func BuildKnownHostsFn(file, data string, vars map[string]string, dir string) func(conn PluginConnMetadata) ([]byte, error) {
-	return func(conn PluginConnMetadata) ([]byte, error) {
+func BuildKnownHostsFn(file, data string, vars map[string]string, dir string) func(conn ConnMetadata) ([]byte, error) {
+	return func(conn ConnMetadata) ([]byte, error) {
 		return LoadFileOrBase64Many(ListOrString{Str: file}, ListOrString{Str: data}, vars, dir)
 	}
 }
@@ -73,7 +73,7 @@ func GetPasswordFieldFromSpecs(specs []interface{}, fieldNames []string) (string
 }
 
 // ValidateCertificateFromSpecs agrega todas as CA keys dos specs (Vault, arquivo, base64) e chama MatchAndValidateCACert.
-func ValidateCertificateFromSpecs(specs []interface{}, conn PluginConnMetadata, pubKey ssh.PublicKey, dir string, fields []string) error {
+func ValidateCertificateFromSpecs(specs []interface{}, conn ConnMetadata, pubKey ssh.PublicKey, dir string, fields []string) error {
 	var trustedCAData []byte
 	for _, spec := range specs {
 		v := reflect.ValueOf(spec)

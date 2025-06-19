@@ -28,7 +28,7 @@ func main() {
 			}
 
 			return &libplugin.PluginConfig{
-				PasswordCallback: func(conn libplugin.PluginConnMetadata, password []byte) (*libplugin.Upstream, error) {
+				PasswordCallback: func(conn libplugin.ConnMetadata, password []byte) (*libplugin.Upstream, error) {
 					log.Info("routing to ", target)
 					return &libplugin.Upstream{
 						Host:          host,

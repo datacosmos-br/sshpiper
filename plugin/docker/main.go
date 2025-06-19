@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	libplugin.CreateAndRunPluginTemplate(&libplugin.PluginTemplate{
+	libplugin.RunPluginEntrypoint(&libplugin.PluginEntrypoint{
 		Name:  "docker",
 		Usage: "sshpiperd docker plugin, see config in https://github.com/tg123/sshpiper/tree/master/plugin/docker",
 		CreateConfig: func(c *cli.Context) (*libplugin.PluginConfig, error) {

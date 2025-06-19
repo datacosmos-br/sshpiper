@@ -6,7 +6,6 @@
 //   - HtpasswdPasswordCheck: Checks a username and password against htpasswd data
 //   - HtpasswdPasswordFieldsCheck: Checks a password against htpasswdData or htpasswdFile fields
 //   - PasswordCheckFromSpecs: Checks a password against a slice of specs (htpasswd, file, Vault)
-//   - UpstreamCreate: Constructs an Upstream from SkelPipeTo and optional password
 //   - AuthorizedKeysAggregateFromSpecs: Aggregates authorized keys from specs
 //   - TrustedUserCAKeysAggregateFromSpecs: Aggregates trusted CA keys from specs
 //   - KubernetesSecretFieldLoad: Loads a field from a Kubernetes Secret
@@ -18,7 +17,6 @@
 //	ok, err := libplugin.HtpasswdPasswordCheck(htpasswdData, username, password)
 //	ok, err := libplugin.HtpasswdPasswordFieldsCheck(htpasswdData, htpasswdFile, username, password)
 //	ok, err := libplugin.PasswordCheckFromSpecs(specs, user, password)
-//	up, err := libplugin.UpstreamCreate(sk, conn, to, password)
 //	keys, err := libplugin.AuthorizedKeysAggregateFromSpecs(specs, conn)
 //	caKeys, err := libplugin.TrustedUserCAKeysAggregateFromSpecs(specs, conn)
 
@@ -28,7 +26,6 @@ package libplugin
 import (
 	"bytes"
 	"context"
-	"crypto/subtle"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -39,7 +36,6 @@ import (
 
 	vault "github.com/hashicorp/vault/api"
 	"github.com/tg123/go-htpasswd"
-	"golang.org/x/crypto/ssh"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -110,133 +106,12 @@ func CheckPasswordFromSpecs(specs []interface{}, user string, password []byte) (
 	return false, nil
 }
 
-// PasswordCallback handles password authentication for the connection.
-// Moved from skel.go.
-func PasswordCallback(sk *SkelPlugin, conn PluginConnMetadata, password []byte) (*Upstream, error) {
-	_, to, err := sk.match(conn, func(from SkelPipeFrom) (bool, error) {
-		frompass, ok := from.(SkelPipeFromPassword)
-		if !ok {
-			return false, nil
-		}
-		return frompass.TestPassword(conn, password)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return CreateUpstream(sk, conn, to, password)
-}
-
-// PublicKeyCallback handles public key authentication for the connection.
-// Moved from skel.go.
-func PublicKeyCallback(sk *SkelPlugin, conn PluginConnMetadata, publicKey []byte) (*Upstream, error) {
-	pubKey, err := ssh.ParsePublicKey(publicKey)
-	if err != nil {
-		return nil, err
-	}
-	pkcert, isCert := pubKey.(*ssh.Certificate)
-	if isCert {
-		if pkcert.CertType != ssh.UserCert {
-			return nil, fmt.Errorf("only user certificates are supported, cert type: %v", pkcert.CertType)
-		}
-		certChecker := ssh.CertChecker{}
-		if err := certChecker.CheckCert(conn.User(), pkcert); err != nil {
-			return nil, err
-		}
-	}
-	_, to, err := sk.match(conn, func(from SkelPipeFrom) (bool, error) {
-		fromPubKey, ok := from.(SkelPipeFromPublicKey)
-		if !ok {
-			return false, nil
-		}
-		verified := false
-		if isCert {
-			rest, err := fromPubKey.TrustedUserCAKeys(conn)
-			if err != nil {
-				return false, err
-			}
-			var trustedca ssh.PublicKey
-			for len(rest) > 0 {
-				trustedca, _, _, rest, err = ssh.ParseAuthorizedKey(rest)
-				if err != nil {
-					return false, err
-				}
-				if subtle.ConstantTimeCompare(trustedca.Marshal(), pkcert.SignatureKey.Marshal()) == 1 {
-					verified = true
-					break
-				}
-			}
-		} else {
-			rest, err := fromPubKey.AuthorizedKeys(conn)
-			if err != nil {
-				return false, err
-			}
-			var authedPubkey ssh.PublicKey
-			for len(rest) > 0 {
-				authedPubkey, _, _, rest, err = ssh.ParseAuthorizedKey(rest)
-				if err != nil {
-					return false, err
-				}
-				if subtle.ConstantTimeCompare(authedPubkey.Marshal(), publicKey) == 1 {
-					verified = true
-					break
-				}
-			}
-		}
-		return verified, nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return CreateUpstream(sk, conn, to, nil)
-}
-
-// CreateUpstream constructs an Upstream from the SkelPipeTo and optional password.
-// Moved from skel.go.
-func CreateUpstream(sk *SkelPlugin, conn PluginConnMetadata, to SkelPipeTo, originalPassword []byte) (*Upstream, error) {
-	host, port, err := SplitHostPortForSSH(to.Host(conn))
-	if err != nil {
-		return nil, err
-	}
-	user := to.User(conn)
-	if user == "" {
-		user = conn.User()
-	}
-	sk.cache.SetDefault(conn.UniqueID(), to)
-	u := &Upstream{
-		Host:          host,
-		Port:          int32(port),
-		UserName:      user,
-		IgnoreHostKey: to.IgnoreHostKey(conn),
-	}
-	switch to := to.(type) {
-	case SkelPipeToPassword:
-		overridepassword, err := to.OverridePassword(conn)
-		if err != nil {
-			return nil, err
-		}
-		if overridepassword != nil {
-			u.Auth = AuthPasswordCreate(overridepassword)
-		} else {
-			u.Auth = AuthPasswordCreate(originalPassword)
-		}
-	case SkelPipeToPrivateKey:
-		priv, cert, err := to.PrivateKey(conn)
-		if err != nil {
-			return nil, err
-		}
-		u.Auth = AuthPrivateKeyCreate(priv, cert)
-	default:
-		return nil, fmt.Errorf("pipe to does not support any auth method")
-	}
-	return u, err
-}
-
 // AggregateAuthorizedKeysFromSpecs loads and aggregates all authorized public keys from a slice of 'from' specs.
 // Returns a single blob of authorized keys.
 // Example usage:
 //
 //	keys, err := AggregateAuthorizedKeysFromSpecs(specs, conn)
-func AggregateAuthorizedKeysFromSpecs(specs []interface{}, conn PluginConnMetadata) ([]byte, error) {
+func AggregateAuthorizedKeysFromSpecs(specs []interface{}, conn ConnMetadata) ([]byte, error) {
 	return AggregateKeysFromSpecs(
 		specs,
 		[]string{"AuthorizedKeysFile"},
@@ -252,7 +127,7 @@ func AggregateAuthorizedKeysFromSpecs(specs []interface{}, conn PluginConnMetada
 // Example usage:
 //
 //	caKeys, err := AggregateTrustedUserCAKeysFromSpecs(specs, conn)
-func AggregateTrustedUserCAKeysFromSpecs(specs []interface{}, conn PluginConnMetadata) ([]byte, error) {
+func AggregateTrustedUserCAKeysFromSpecs(specs []interface{}, conn ConnMetadata) ([]byte, error) {
 	return AggregateKeysFromSpecs(
 		specs,
 		[]string{"TrustedUserCAKeysFile"},
@@ -265,7 +140,7 @@ func AggregateTrustedUserCAKeysFromSpecs(specs []interface{}, conn PluginConnMet
 
 // GetAllAuthorizedKeysFromSpecs loads and aggregates all authorized public keys from a slice of 'from' specs.
 // Moved from skelpipe.go.
-func GetAllAuthorizedKeysFromSpecs(specs []interface{}, conn PluginConnMetadata) ([]byte, error) {
+func GetAllAuthorizedKeysFromSpecs(specs []interface{}, conn ConnMetadata) ([]byte, error) {
 	return AggregateKeysFromSpecs(
 		specs,
 		[]string{"AuthorizedKeysFile"},
@@ -278,7 +153,7 @@ func GetAllAuthorizedKeysFromSpecs(specs []interface{}, conn PluginConnMetadata)
 
 // GetAllTrustedUserCAKeysFromSpecs loads and aggregates all trusted CA public keys from a slice of 'from' specs.
 // Moved from skelpipe.go.
-func GetAllTrustedUserCAKeysFromSpecs(specs []interface{}, conn PluginConnMetadata) ([]byte, error) {
+func GetAllTrustedUserCAKeysFromSpecs(specs []interface{}, conn ConnMetadata) ([]byte, error) {
 	return AggregateKeysFromSpecs(
 		specs,
 		[]string{"TrustedUserCAKeysFile"},
@@ -593,7 +468,7 @@ func GetFirstFieldFromSpecs(
 	vaultFieldNames []string,
 	fileFieldNames []string,
 	dataFieldNames []string,
-	conn PluginConnMetadata,
+	conn ConnMetadata,
 	baseDir string,
 ) ([]byte, error) {
 	for _, spec := range specs {
@@ -651,7 +526,7 @@ func AggregateFieldsFromSpecs(
 	vaultFieldNames []string,
 	fileFieldNames []string,
 	dataFieldNames []string,
-	conn PluginConnMetadata,
+	conn ConnMetadata,
 	baseDir string,
 ) ([]byte, error) {
 	var all [][]byte

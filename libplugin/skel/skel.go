@@ -2,6 +2,7 @@ package skel
 
 import (
 	"bytes"
+	"crypto/subtle"
 	"fmt"
 	"io"
 	"net"
@@ -108,8 +109,8 @@ type SkelPipeToPrivateKey interface {
 	PrivateKey(conn libplugin.ConnMetadata) ([]byte, []byte, error)
 }
 
-func (p *SkelPlugin) CreateConfig() *libplugin.SshPiperPluginConfig {
-	return &libplugin.SshPiperPluginConfig{
+func (p *SkelPlugin) CreateConfig() *libplugin.PluginConfig {
+	return &libplugin.PluginConfig{
 		NextAuthMethodsCallback: p.SupportedMethods,
 		PasswordCallback:        p.PasswordCallback,
 		PublicKeyCallback:       p.PublicKeyCallback,
@@ -329,9 +330,9 @@ func (p *SkelPlugin) createUpstream(conn libplugin.ConnMetadata, to SkelPipeTo, 
 		}
 
 		if overridepassword != nil {
-			u.Auth = libplugin.CreatePasswordAuth(overridepassword)
+			u.Auth = libplugin.AuthPasswordCreate(overridepassword)
 		} else {
-			u.Auth = libplugin.CreatePasswordAuth(originalPassword)
+			u.Auth = libplugin.AuthPasswordCreate(originalPassword)
 		}
 
 	case SkelPipeToPrivateKey:
@@ -340,7 +341,7 @@ func (p *SkelPlugin) createUpstream(conn libplugin.ConnMetadata, to SkelPipeTo, 
 			return nil, err
 		}
 
-		u.Auth = libplugin.CreatePrivateKeyAuth(priv, cert)
+		u.Auth = libplugin.AuthPrivateKeyCreate(priv, cert)
 	default:
 		return nil, fmt.Errorf("pipe to does not support any auth method")
 	}

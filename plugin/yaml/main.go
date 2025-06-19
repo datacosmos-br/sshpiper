@@ -27,7 +27,7 @@ func main() {
 				Destination: &plugin.NoCheckPerm,
 			},
 		},
-		CreateConfig: func(c *cli.Context) (*libplugin.SshPiperPluginConfig, error) {
+		CreateConfig: func(c *cli.Context) (*libplugin.PluginConfig, error) {
 			skel := skel.NewSkelPlugin(plugin.listPipe)
 			return skel.CreateConfig(), nil
 		},

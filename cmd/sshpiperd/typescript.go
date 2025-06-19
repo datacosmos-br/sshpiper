@@ -61,7 +61,7 @@ func (l *filePtyLogger) loggingTty(msg []byte) error {
 
 		// see term-utils/script.c
 		if _, err := fmt.Fprintf(l.timing, "%v.%06v %v\n", int64(delta/time.Second), int64(delta%time.Second/time.Microsecond), len(buf)); err != nil {
-			return msg, err
+			return err
 		}
 
 		l.oldtime = now
@@ -78,13 +78,20 @@ func (l *filePtyLogger) loggingTty(msg []byte) error {
 }
 
 func (l *filePtyLogger) Close() (err error) {
-	// if _, err = ; err != nil {
-	// return err
-	// }
-	_, _ = fmt.Fprintf(l.typescript, "Script done on %v\n", time.Now().Format(time.ANSIC))
+	// Write completion message
+	if _, writeErr := fmt.Fprintf(l.typescript, "Script done on %v\n", time.Now().Format(time.ANSIC)); writeErr != nil {
+		err = writeErr
+	}
 
-	l.typescript.Close()
-	l.timing.Close()
+	// Close typescript file
+	if closeErr := l.typescript.Close(); closeErr != nil && err == nil {
+		err = closeErr
+	}
 
-	return nil // TODO
+	// Close timing file
+	if closeErr := l.timing.Close(); closeErr != nil && err == nil {
+		err = closeErr
+	}
+
+	return err
 }

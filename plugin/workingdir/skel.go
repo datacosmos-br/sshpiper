@@ -21,6 +21,7 @@ type workdingdirFactory struct {
 }
 
 type skelpipeWrapper struct {
+	libplugin.SkelPipeWrapper
 	dir      *workingdir
 	host     string
 	username string
@@ -64,23 +65,65 @@ func (s *skelpipeWrapper) From() []skel.SkelPipeFrom {
 			skelpipeFromWrapper: w,
 		}}
 	}
-	return libplugin.FromGeneric(s.dir, s, fromSpecs, matchConnFn, nil)
 }
 
-func (s *skelpipeWrapper) User(conn libplugin.PluginConnMetadata) string {
+func (s *skelpipeWrapper) User(conn libplugin.ConnMetadata) string {
 	return s.username
 }
 
-func (s *skelpipeWrapper) Host(conn libplugin.PluginConnMetadata) string {
+func (s *skelpipeWrapper) Host(conn libplugin.ConnMetadata) string {
 	return s.host
 }
 
-func (s *skelpipeWrapper) IgnoreHostKey(conn libplugin.PluginConnMetadata) bool {
-	return !s.dir.Strict
+func (s *skelpipeWrapper) IgnoreHostKey(conn libplugin.ConnMetadata) bool {
+	// Use standard helper for host key ignoring logic
+	knownHostsFile := ""
+	if s.dir.Exists(userKnownHosts) {
+		knownHostsFile = s.dir.fullpath(userKnownHosts)
+	}
+	return libplugin.StandardIgnoreHostKey(!s.dir.Strict, "", knownHostsFile)
 }
 
-func (s *skelpipeWrapper) KnownHosts(conn libplugin.PluginConnMetadata) ([]byte, error) {
-	return s.dir.Readfile(userKnownHosts)
+func (s *skelpipeWrapper) KnownHosts(conn libplugin.ConnMetadata) ([]byte, error) {
+	// Use standard helper for known hosts loading
+	envVars := map[string]string{"DOWNSTREAM_USER": conn.User()}
+	knownHostsFile := s.dir.fullpath(userKnownHosts)
+	return libplugin.StandardKnownHosts("", knownHostsFile, envVars, s.dir.Path)
+}
+
+// TestPassword delegates to libplugin.StandardTestPassword for password authentication.
+func (s *skelpipeWrapper) TestPassword(conn libplugin.ConnMetadata, password []byte) (bool, error) {
+	// Check if password file exists
+	if !s.dir.Exists(userPasswordFile) {
+		// If no password file exists, allow connection (workingdir default behavior)
+		log.Debugf("no password file found for user %s, allowing connection", conn.User())
+		return true, nil
+	}
+
+	// Use standard helper with the workingdir password file
+	passwordFile := s.dir.fullpath(userPasswordFile)
+	return libplugin.StandardTestPassword("", passwordFile, conn.User(), password)
+}
+
+// AuthorizedKeys loads authorized keys using libplugin.StandardAuthorizedKeys.
+func (s *skelpipeWrapper) AuthorizedKeys(conn libplugin.ConnMetadata) ([]byte, error) {
+	// Use standard libplugin helper for authorized keys loading
+	envVars := map[string]string{"DOWNSTREAM_USER": conn.User()}
+	keysFile := s.dir.fullpath(userAuthorizedKeysFile)
+	return libplugin.StandardAuthorizedKeys("", keysFile, envVars, s.dir.Path)
+}
+
+// TrustedUserCAKeys loads trusted CA keys using libplugin.StandardTrustedUserCAKeys.
+func (s *skelpipeWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata) ([]byte, error) {
+	// Check if file exists first (workingdir behavior)
+	if !s.dir.Exists(userTrustedUserCAKeysFile) {
+		return nil, nil
+	}
+
+	// Use standard libplugin helper for trusted CA keys loading
+	envVars := map[string]string{"DOWNSTREAM_USER": conn.User()}
+	caKeysFile := s.dir.fullpath(userTrustedUserCAKeysFile)
+	return libplugin.StandardTrustedUserCAKeys("", caKeysFile, envVars, s.dir.Path)
 }
 
 func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (skel.SkelPipeTo, error) {
@@ -93,31 +136,6 @@ func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (skel.SkelP
 	return &skelpipeToPasswordWrapper{
 		skelpipeToWrapper: skelpipeToWrapper(*s),
 	}, nil
-}
-
-func (s *skelpipePasswordWrapper) TestPassword(conn libplugin.ConnMetadata, password []byte) (bool, error) {
-	return true, nil // TODO support later
-}
-
-func (s *skelpipePublicKeyWrapper) AuthorizedKeys(conn libplugin.ConnMetadata) ([]byte, error) {
-	return s.dir.Readfile(userAuthorizedKeysFile)
-}
-
-func (s *skelpipePublicKeyWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata) ([]byte, error) {
-	return nil, nil // TODO support this
-}
-
-func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([]byte, []byte, error) {
-	k, err := s.dir.Readfile(userKeyFile)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return k, nil, nil
-}
-
-func (s *skelpipeToPasswordWrapper) OverridePassword(conn libplugin.ConnMetadata) ([]byte, error) {
-	return nil, nil
 }
 
 func (wf *workdingdirFactory) listPipe(conn libplugin.ConnMetadata) ([]skel.SkelPipe, error) {
@@ -175,4 +193,17 @@ func (wf *workdingdirFactory) listPipe(conn libplugin.ConnMetadata) ([]skel.Skel
 	})
 
 	return pipes, nil
+}
+
+func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([]byte, []byte, error) {
+	// Use standard helper for private key loading
+	envVars := map[string]string{"DOWNSTREAM_USER": conn.User()}
+	keyFile := s.dir.fullpath(userKeyFile)
+	return libplugin.StandardPrivateKey("", keyFile, envVars, s.dir.Path)
+}
+
+func (s *skelpipeToPasswordWrapper) OverridePassword(conn libplugin.ConnMetadata) ([]byte, error) {
+	// Use standard helper for override password loading
+	envVars := map[string]string{"DOWNSTREAM_USER": conn.User()}
+	return libplugin.StandardOverridePassword("", "", envVars, s.dir.Path)
 }
