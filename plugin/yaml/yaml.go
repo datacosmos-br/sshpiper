@@ -108,26 +108,3 @@ func (c *piperConfig) loadFileOrDecodeMany(files listOrString, data listOrString
 	return result, nil
 }
 
-// loadFileOrDecode loads a single file or data with variable substitution
-func (c *piperConfig) loadFileOrDecode(file string, data string, variables map[string]string) ([]byte, error) {
-	if data != "" {
-		// Apply variable substitution
-		processedData := data
-		for _, value := range variables {
-			processedData = fmt.Sprintf(processedData, value)
-		}
-		return []byte(processedData), nil
-	}
-
-	if file != "" {
-		// Apply variable substitution
-		processedFile := file
-		for _, value := range variables {
-			processedFile = fmt.Sprintf(processedFile, value)
-		}
-		// In real implementation, would read file content
-		return []byte(processedFile), nil
-	}
-
-	return nil, nil
-}

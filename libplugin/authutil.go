@@ -91,7 +91,7 @@ func CheckPasswordFromSpecs(specs []interface{}, user string, password []byte) (
 			if err != nil {
 				return false, fmt.Errorf("vault secret error: %w", err)
 			}
-			if string(vaultData) == string(password) {
+			if bytes.Equal(vaultData, password) {
 				return true, nil
 			}
 		}

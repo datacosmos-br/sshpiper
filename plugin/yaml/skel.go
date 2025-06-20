@@ -2,7 +2,6 @@
 package main
 
 import (
-	"bytes"
 	"os/user"
 	"path/filepath"
 	"regexp"
@@ -10,7 +9,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
-	"golang.org/x/crypto/ssh"
 
 	"github.com/tg123/sshpiper/libplugin"
 	"github.com/tg123/sshpiper/libplugin/skel"
@@ -66,8 +64,29 @@ type skelpipePublicKeyWrapper struct {
 	skelpipeFromWrapper
 }
 
+// AuthorizedKeys implements SkelPipeFromPublicKey interface
+func (s *skelpipePublicKeyWrapper) AuthorizedKeys(conn libplugin.ConnMetadata) ([]byte, error) {
+	envVars := map[string]string{
+		"DOWNSTREAM_USER": conn.User(),
+	}
+	return libplugin.StandardAuthorizedKeys(s.from.AuthorizedKeysData.Str, s.from.AuthorizedKeys.Str, envVars, filepath.Dir(s.config.filename))
+}
+
+// TrustedUserCAKeys implements SkelPipeFromPublicKey interface
+func (s *skelpipePublicKeyWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata) ([]byte, error) {
+	envVars := map[string]string{
+		"DOWNSTREAM_USER": conn.User(),
+	}
+	return libplugin.StandardTrustedUserCAKeys(s.from.TrustedUserCAKeysData.Str, s.from.TrustedUserCAKeys.Str, envVars, filepath.Dir(s.config.filename))
+}
+
 type skelpipePasswordWrapper struct {
 	skelpipeFromWrapper
+}
+
+// TestPassword implements SkelPipeFromPassword interface
+func (s *skelpipePasswordWrapper) TestPassword(conn libplugin.ConnMetadata, password []byte) (bool, error) {
+	return libplugin.StandardTestPassword(s.from.HtpasswdData, s.from.HtpasswdFile, conn.User(), password)
 }
 
 func (s *skelpipeWrapper) From() []skel.SkelPipeFrom {
@@ -94,18 +113,12 @@ func (s *skelpipeWrapper) From() []skel.SkelPipeFrom {
 	return froms
 }
 
-// yamlSkelPipeWrapper wraps a YAML pipe for use with the SkelPipe interface.
-// It delegates generic SkelPipe logic to libplugin and provides YAML-specific connection matching.
-type yamlSkelPipeWrapper struct {
-	libplugin.SkelPipeWrapper
-}
-
 func (s *skelpipeToWrapper) Host(conn libplugin.ConnMetadata) string {
 	return s.to.Host
 }
 
 func (s *skelpipeToWrapper) IgnoreHostKey(conn libplugin.ConnMetadata) bool {
-	return s.to.IgnoreHostkey
+	return libplugin.StandardIgnoreHostKey(s.to.IgnoreHostkey, s.to.KnownHostsData.Str, s.to.KnownHosts.Str)
 }
 
 func (s *skelpipeToWrapper) KnownHosts(conn libplugin.ConnMetadata) ([]byte, error) {
@@ -169,129 +182,6 @@ func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (skel.SkelP
 	return nil, nil
 }
 
-// ValidateCertificate validates an SSH certificate for a downstream connection using the configured trusted CA keys.
-// It loads all trusted CA keys from the YAML pipe's 'from' specs and delegates to libplugin.MatchAndValidateCACert.
-func (s *yamlSkelPipeWrapper) ValidateCertificate(conn libplugin.ConnMetadata, pubKey ssh.PublicKey) error {
-	config := s.Plugin.(*piperConfig)
-	pipe := s.Pipe.(*yamlPipe)
-	fromSpecs := libplugin.ExtractSpecs(pipe.From)
-	return libplugin.ValidateCertificateFromSpecs(
-		fromSpecs,
-		conn,
-		pubKey,
-		filepath.Dir(config.filename),
-		[]string{"TrustedUserCAKeys", "TrustedUserCAKeysData", "trusted_user_ca_keys", "trusted_user_ca_keys_data", "ca-key"},
-	)
-}
-
-// TestPassword checks the password using libplugin.StandardTestPassword.
-func (s *yamlSkelPipeWrapper) TestPassword(conn libplugin.ConnMetadata, password []byte) (bool, error) {
-	pipe := s.Pipe.(*yamlPipe)
-	// Aggregate htpasswd data from all from specs
-	var htpasswdData, htpasswdFile string
-	for _, from := range pipe.From {
-		if from.HtpasswdData != "" {
-			htpasswdData = from.HtpasswdData
-			break
-		}
-		if from.HtpasswdFile != "" {
-			htpasswdFile = from.HtpasswdFile
-			break
-		}
-	}
-	return libplugin.StandardTestPassword(htpasswdData, htpasswdFile, conn.User(), password)
-}
-
-// AuthorizedKeys loads authorized keys from all 'from' specs using libplugin.StandardAuthorizedKeys.
-func (s *yamlSkelPipeWrapper) AuthorizedKeys(conn libplugin.ConnMetadata) ([]byte, error) {
-	pipe := s.Pipe.(*yamlPipe)
-	var keysSources [][]byte
-	envVars := map[string]string{"DOWNSTREAM_USER": conn.User()}
-	baseDir := filepath.Dir(s.Plugin.(*piperConfig).filename)
-
-	// Process each from spec using standard helper
-	for _, from := range pipe.From {
-		// Extract authorized keys data and file from ListOrString
-		var keysData, keysFile string
-		if from.AuthorizedKeysData.Any() {
-			// Get first available data source
-			if from.AuthorizedKeysData.Str != "" {
-				keysData = from.AuthorizedKeysData.Str
-			} else if len(from.AuthorizedKeysData.List) > 0 {
-				keysData = from.AuthorizedKeysData.List[0]
-			}
-		}
-		if from.AuthorizedKeys.Any() {
-			// Get first available file source
-			if from.AuthorizedKeys.Str != "" {
-				keysFile = from.AuthorizedKeys.Str
-			} else if len(from.AuthorizedKeys.List) > 0 {
-				keysFile = from.AuthorizedKeys.List[0]
-			}
-		}
-
-		// Use standard helper for this from spec
-		keys, err := libplugin.StandardAuthorizedKeys(keysData, keysFile, envVars, baseDir)
-		if err != nil {
-			return nil, err
-		}
-		if keys != nil {
-			keysSources = append(keysSources, keys)
-		}
-	}
-
-	if len(keysSources) == 0 {
-		return nil, nil
-	}
-
-	return bytes.Join(keysSources, []byte("\n")), nil
-}
-
-// TrustedUserCAKeys loads CA keys from all 'from' specs using libplugin.StandardTrustedUserCAKeys.
-func (s *yamlSkelPipeWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata) ([]byte, error) {
-	pipe := s.Pipe.(*yamlPipe)
-	var keysSources [][]byte
-	envVars := map[string]string{"DOWNSTREAM_USER": conn.User()}
-	baseDir := filepath.Dir(s.Plugin.(*piperConfig).filename)
-
-	// Process each from spec using standard helper
-	for _, from := range pipe.From {
-		// Extract trusted CA keys data and file from ListOrString
-		var caKeysData, caKeysFile string
-		if from.TrustedUserCAKeysData.Any() {
-			// Get first available data source
-			if from.TrustedUserCAKeysData.Str != "" {
-				caKeysData = from.TrustedUserCAKeysData.Str
-			} else if len(from.TrustedUserCAKeysData.List) > 0 {
-				caKeysData = from.TrustedUserCAKeysData.List[0]
-			}
-		}
-		if from.TrustedUserCAKeys.Any() {
-			// Get first available file source
-			if from.TrustedUserCAKeys.Str != "" {
-				caKeysFile = from.TrustedUserCAKeys.Str
-			} else if len(from.TrustedUserCAKeys.List) > 0 {
-				caKeysFile = from.TrustedUserCAKeys.List[0]
-			}
-		}
-
-		// Use standard helper for this from spec
-		caKeys, err := libplugin.StandardTrustedUserCAKeys(caKeysData, caKeysFile, envVars, baseDir)
-		if err != nil {
-			return nil, err
-		}
-		if caKeys != nil {
-			keysSources = append(keysSources, caKeys)
-		}
-	}
-
-	if len(keysSources) == 0 {
-		return nil, nil
-	}
-
-	return bytes.Join(keysSources, []byte("\n")), nil
-}
-
 func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([]byte, []byte, error) {
 	// Use standard helper for private key loading
 	envVars := map[string]string{
@@ -299,13 +189,6 @@ func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([
 		"UPSTREAM_USER":   s.username,
 	}
 	return libplugin.StandardPrivateKey(s.to.PrivateKeyData, s.to.PrivateKey, envVars, filepath.Dir(s.config.filename))
-}
-
-// OverridePassword loads an override password using libplugin.StandardOverridePassword.
-func (s *yamlSkelPipeWrapper) OverridePassword(conn libplugin.ConnMetadata) ([]byte, error) {
-	pipe := s.Pipe.(*yamlPipe)
-	envVars := map[string]string{"DOWNSTREAM_USER": conn.User()}
-	return libplugin.StandardOverridePassword(pipe.To.Password, "", envVars, filepath.Dir(s.Plugin.(*piperConfig).filename))
 }
 
 func (p *plugin) loadConfig() ([]piperConfig, error) {

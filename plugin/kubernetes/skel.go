@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"os"
 	"regexp"
 
 	log "github.com/sirupsen/logrus"
@@ -319,27 +318,6 @@ func (s *skelpipeWrapper) From() []skel.SkelPipeFrom {
 	return nil
 }
 
-func loadStringAndFile(base64orraw string, filepath string) ([][]byte, error) {
-	all := make([][]byte, 0, 2)
-
-	if base64orraw != "" {
-		data, err := base64.StdEncoding.DecodeString(base64orraw)
-		if err != nil {
-			data = []byte(base64orraw)
-		}
-		all = append(all, data)
-	}
-
-	if filepath != "" {
-		data, err := os.ReadFile(filepath)
-		if err != nil {
-			return nil, err
-		}
-		all = append(all, data)
-	}
-
-	return all, nil
-}
 
 func (p *plugin) listPipe(_ libplugin.ConnMetadata) ([]skel.SkelPipe, error) {
 	kpipes, err := p.list()

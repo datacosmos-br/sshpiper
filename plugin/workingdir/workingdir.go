@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"os"
 	"path"
 	"regexp"
@@ -35,29 +34,6 @@ func isUsernameSecure(user string) bool {
 	return usernameRule.MatchString(user)
 }
 
-func (w *workingdir) checkPerm(file string) error {
-	filename := path.Join(w.Path, file)
-	f, err := os.Open(filename)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	fi, err := f.Stat()
-	if err != nil {
-		return err
-	}
-
-	if w.NoCheckPerm {
-		return nil
-	}
-
-	if fi.Mode().Perm()&0o077 != 0 {
-		return fmt.Errorf("%v's perm is too open", filename)
-	}
-
-	return nil
-}
 
 func (w *workingdir) fullpath(file string) string {
 	return path.Join(w.Path, file)

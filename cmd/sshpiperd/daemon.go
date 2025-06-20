@@ -71,7 +71,7 @@ func newDaemon(ctx *cli.Context) (*daemon, error) {
 			return nil, err
 		}
 
-		private, err := ssh.ParsePrivateKey([]byte(privateBytes))
+		private, err := ssh.ParsePrivateKey(privateBytes)
 		if err != nil {
 			return nil, err
 		}

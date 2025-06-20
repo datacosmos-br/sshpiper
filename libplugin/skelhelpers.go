@@ -60,25 +60,24 @@ func StandardTestPassword(htpasswdData, htpasswdFile string, username string, pa
 	return false, nil
 }
 
-// StandardAuthorizedKeys provides a generic authorized keys loading implementation
-// that works with data, files, and base64 encoding
-func StandardAuthorizedKeys(keysData, keysFile string, envVars map[string]string, baseDir string) ([]byte, error) {
-	var keysSources [][]byte
+// standardLoadDataOrFile is a generic helper for loading data from base64 strings or files
+func standardLoadDataOrFile(data, file string, envVars map[string]string, baseDir, description string) ([]byte, error) {
+	var sources [][]byte
 
 	// Add data if provided
-	if keysData != "" {
-		data, err := base64.StdEncoding.DecodeString(keysData)
+	if data != "" {
+		decoded, err := base64.StdEncoding.DecodeString(data)
 		if err != nil {
 			// If base64 decode fails, treat as raw data
-			data = []byte(keysData)
+			decoded = []byte(data)
 		}
-		keysSources = append(keysSources, data)
+		sources = append(sources, decoded)
 	}
 
 	// Add file content if provided
-	if keysFile != "" {
+	if file != "" {
 		// Expand environment variables in file path
-		expandedPath := keysFile
+		expandedPath := file
 		for key, value := range envVars {
 			expandedPath = strings.ReplaceAll(expandedPath, fmt.Sprintf("${%s}", key), value)
 		}
@@ -88,105 +87,37 @@ func StandardAuthorizedKeys(keysData, keysFile string, envVars map[string]string
 			expandedPath = filepath.Join(baseDir, expandedPath)
 		}
 
-		data, err := os.ReadFile(expandedPath)
+		fileData, err := os.ReadFile(expandedPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read authorized keys file %s: %w", expandedPath, err)
+			return nil, fmt.Errorf("failed to read %s file %s: %w", description, expandedPath, err)
 		}
-		keysSources = append(keysSources, data)
+		sources = append(sources, fileData)
 	}
 
-	if len(keysSources) == 0 {
+	if len(sources) == 0 {
 		return nil, nil
 	}
 
-	// Join all key sources with newlines
-	return bytes.Join(keysSources, []byte("\n")), nil
+	// Join all sources with newlines
+	return bytes.Join(sources, []byte("\n")), nil
+}
+
+// StandardAuthorizedKeys provides a generic authorized keys loading implementation
+// that works with data, files, and base64 encoding
+func StandardAuthorizedKeys(keysData, keysFile string, envVars map[string]string, baseDir string) ([]byte, error) {
+	return standardLoadDataOrFile(keysData, keysFile, envVars, baseDir, "authorized keys")
 }
 
 // StandardTrustedUserCAKeys provides a generic trusted CA keys loading implementation
 // that works with data, files, and base64 encoding
 func StandardTrustedUserCAKeys(caKeysData, caKeysFile string, envVars map[string]string, baseDir string) ([]byte, error) {
-	var keysSources [][]byte
-
-	// Add data if provided
-	if caKeysData != "" {
-		data, err := base64.StdEncoding.DecodeString(caKeysData)
-		if err != nil {
-			// If base64 decode fails, treat as raw data
-			data = []byte(caKeysData)
-		}
-		keysSources = append(keysSources, data)
-	}
-
-	// Add file content if provided
-	if caKeysFile != "" {
-		// Expand environment variables in file path
-		expandedPath := caKeysFile
-		for key, value := range envVars {
-			expandedPath = strings.ReplaceAll(expandedPath, fmt.Sprintf("${%s}", key), value)
-		}
-
-		// Make path absolute if relative
-		if !filepath.IsAbs(expandedPath) {
-			expandedPath = filepath.Join(baseDir, expandedPath)
-		}
-
-		data, err := os.ReadFile(expandedPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read trusted CA keys file %s: %w", expandedPath, err)
-		}
-		keysSources = append(keysSources, data)
-	}
-
-	if len(keysSources) == 0 {
-		return nil, nil
-	}
-
-	// Join all key sources with newlines
-	return bytes.Join(keysSources, []byte("\n")), nil
+	return standardLoadDataOrFile(caKeysData, caKeysFile, envVars, baseDir, "trusted CA keys")
 }
 
 // StandardKnownHosts provides a generic known hosts loading implementation
 // that works with data, files, and base64 encoding
 func StandardKnownHosts(knownHostsData, knownHostsFile string, envVars map[string]string, baseDir string) ([]byte, error) {
-	var hostsSources [][]byte
-
-	// Add data if provided
-	if knownHostsData != "" {
-		data, err := base64.StdEncoding.DecodeString(knownHostsData)
-		if err != nil {
-			// If base64 decode fails, treat as raw data
-			data = []byte(knownHostsData)
-		}
-		hostsSources = append(hostsSources, data)
-	}
-
-	// Add file content if provided
-	if knownHostsFile != "" {
-		// Expand environment variables in file path
-		expandedPath := knownHostsFile
-		for key, value := range envVars {
-			expandedPath = strings.ReplaceAll(expandedPath, fmt.Sprintf("${%s}", key), value)
-		}
-
-		// Make path absolute if relative
-		if !filepath.IsAbs(expandedPath) {
-			expandedPath = filepath.Join(baseDir, expandedPath)
-		}
-
-		data, err := os.ReadFile(expandedPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read known hosts file %s: %w", expandedPath, err)
-		}
-		hostsSources = append(hostsSources, data)
-	}
-
-	if len(hostsSources) == 0 {
-		return nil, nil
-	}
-
-	// Join all host sources with newlines
-	return bytes.Join(hostsSources, []byte("\n")), nil
+	return standardLoadDataOrFile(knownHostsData, knownHostsFile, envVars, baseDir, "known hosts")
 }
 
 // StandardPrivateKey provides a generic private key loading implementation

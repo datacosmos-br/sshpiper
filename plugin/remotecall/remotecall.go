@@ -171,9 +171,7 @@ func (r *RemoteCall) performHttpRequest(req *http.Request, httpClient *http.Clie
 		return fmt.Errorf("error making request: %w", err)
 	}
 	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			fmt.Printf("failed to close response body: %v\n", cerr)
-		}
+		_ = resp.Body.Close()
 	}()
 
 	if resp.StatusCode != http.StatusOK {

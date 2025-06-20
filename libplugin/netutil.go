@@ -68,10 +68,7 @@ func DoJSONRequest(ctx context.Context, client *http.Client, method, url string,
 		return fmt.Errorf("http do: %w", err)
 	}
 	defer func() {
-		err := resp.Body.Close()
-		if err != nil {
-			fmt.Printf("error closing response body: %v\n", err)
-		}
+		_ = resp.Body.Close()
 	}()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("http error: %s", resp.Status)

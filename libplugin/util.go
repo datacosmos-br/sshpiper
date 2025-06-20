@@ -177,10 +177,7 @@ func CheckFilePerm(filename string) error {
 		return err
 	}
 	defer func() {
-		err := f.Close()
-		if err != nil {
-			fmt.Printf("error closing file: %v\n", err)
-		}
+		_ = f.Close()
 	}()
 	fi, err := f.Stat()
 	if err != nil {
