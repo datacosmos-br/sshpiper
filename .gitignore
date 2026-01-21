@@ -10,6 +10,21 @@
 *.tar.gz
 bin/
 
+# Plugin binaries (built artifacts)
+plugin/*/[a-z]*[!.go]
+!plugin/*/*.go
+!plugin/*/*.yaml
+!plugin/*/*.yml
+!plugin/*/*.md
+!plugin/*/*.proto
+
+# ML model cache
+.fastembed_cache/
+
+# IDE and editor
+.vscode/
+.idea/
+
 # Test binary, built with `go test -c`
 *.test
 
