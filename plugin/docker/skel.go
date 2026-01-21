@@ -83,7 +83,7 @@ func (d *DockerPipeWrapper) TestPassword(conn libplugin.ConnMetadata, password [
 }
 
 // AuthorizedKeys implements public key authentication using standard helpers with Docker-specific paths
-func (d *DockerPipeWrapper) AuthorizedKeys(conn libplugin.ConnMetadata, key []byte) (*libplugin.Upstream, error) {
+func (d *DockerPipeWrapper) AuthorizedKeys(conn libplugin.ConnMetadata, _ []byte) (*libplugin.Upstream, error) {
 	var upstream *libplugin.Upstream
 	err := d.LogOperation("authorized_keys", func() error {
 		keysFile := filepath.Join(d.workingDir, "authorized_keys")
@@ -128,7 +128,7 @@ func (d *DockerPipeWrapper) AuthorizedKeys(conn libplugin.ConnMetadata, key []by
 }
 
 // TrustedUserCAKeys implements CA key authentication using standard helpers with Docker-specific paths
-func (d *DockerPipeWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata, key []byte) (*libplugin.Upstream, error) {
+func (d *DockerPipeWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata, _ []byte) (*libplugin.Upstream, error) {
 	var upstream *libplugin.Upstream
 	err := d.LogOperation("trusted_user_ca_keys", func() error {
 		caKeysFile := filepath.Join(d.workingDir, "ca_keys")
@@ -173,7 +173,7 @@ func (d *DockerPipeWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata, key [
 }
 
 // KnownHosts implements host key verification using standard helpers with Docker-specific paths
-func (d *DockerPipeWrapper) KnownHosts(conn libplugin.ConnMetadata, hostname, netaddr string, key []byte) error {
+func (d *DockerPipeWrapper) KnownHosts(conn libplugin.ConnMetadata, hostname, netaddr string, _ []byte) error {
 	return d.LogOperation("known_hosts", func() error {
 		knownHostsFile := filepath.Join(d.workingDir, "known_hosts")
 		knownHostsData := ""
@@ -310,7 +310,7 @@ func (d *DockerPipeWrapper) OverridePassword(conn libplugin.ConnMetadata, passwo
 }
 
 // IgnoreHostKey implements host key ignoring using standard helpers
-func (d *DockerPipeWrapper) IgnoreHostKey(conn libplugin.ConnMetadata, hostname, netaddr string, key []byte) error {
+func (d *DockerPipeWrapper) IgnoreHostKey(_ libplugin.ConnMetadata, hostname, netaddr string, key []byte) error {
 	return d.LogOperation("ignore_host_key", func() error {
 		knownHostsFile := filepath.Join(d.workingDir, "known_hosts")
 		knownHostsData := ""
@@ -379,15 +379,15 @@ type dockerSkelPipeToWrapper struct {
 	username string
 }
 
-func (s *dockerSkelPipeToWrapper) User(conn libplugin.ConnMetadata) string {
+func (s *dockerSkelPipeToWrapper) User(_ libplugin.ConnMetadata) string {
 	return s.username
 }
 
-func (s *dockerSkelPipeToWrapper) Host(conn libplugin.ConnMetadata) string {
+func (s *dockerSkelPipeToWrapper) Host(_ libplugin.ConnMetadata) string {
 	return s.pipe.Host
 }
 
-func (s *dockerSkelPipeToWrapper) IgnoreHostKey(conn libplugin.ConnMetadata) bool {
+func (s *dockerSkelPipeToWrapper) IgnoreHostKey(_ libplugin.ConnMetadata) bool {
 	// Use standard helper for host key ignoring logic
 	return libplugin.StandardIgnoreHostKey(false, s.pipe.KnownHostsData, s.pipe.KnownHostsFile)
 }

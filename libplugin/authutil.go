@@ -77,7 +77,7 @@ func CheckHtpasswdPasswordFields(htpasswdData, htpasswdFile string, username str
 // Example usage:
 //
 //	ok, err := CheckPasswordFromSpecs(specs, user, password)
-func CheckPasswordFromSpecs(specs []interface{}, user string, password []byte) (bool, error) {
+func CheckPasswordFromSpecs(specs []any, user string, password []byte) (bool, error) {
 	for _, spec := range specs {
 		v := reflect.ValueOf(spec).Elem()
 		htpasswdData := v.FieldByName("HtpasswdData").String()
@@ -111,7 +111,7 @@ func CheckPasswordFromSpecs(specs []interface{}, user string, password []byte) (
 // Example usage:
 //
 //	keys, err := AggregateAuthorizedKeysFromSpecs(specs, conn)
-func AggregateAuthorizedKeysFromSpecs(specs []interface{}, conn ConnMetadata) ([]byte, error) {
+func AggregateAuthorizedKeysFromSpecs(specs []any, conn ConnMetadata) ([]byte, error) {
 	return AggregateKeysFromSpecs(
 		specs,
 		[]string{"AuthorizedKeysFile"},
@@ -127,7 +127,7 @@ func AggregateAuthorizedKeysFromSpecs(specs []interface{}, conn ConnMetadata) ([
 // Example usage:
 //
 //	caKeys, err := AggregateTrustedUserCAKeysFromSpecs(specs, conn)
-func AggregateTrustedUserCAKeysFromSpecs(specs []interface{}, conn ConnMetadata) ([]byte, error) {
+func AggregateTrustedUserCAKeysFromSpecs(specs []any, conn ConnMetadata) ([]byte, error) {
 	return AggregateKeysFromSpecs(
 		specs,
 		[]string{"TrustedUserCAKeysFile"},
@@ -140,7 +140,7 @@ func AggregateTrustedUserCAKeysFromSpecs(specs []interface{}, conn ConnMetadata)
 
 // GetAllAuthorizedKeysFromSpecs loads and aggregates all authorized public keys from a slice of 'from' specs.
 // Moved from skelpipe.go.
-func GetAllAuthorizedKeysFromSpecs(specs []interface{}, conn ConnMetadata) ([]byte, error) {
+func GetAllAuthorizedKeysFromSpecs(specs []any, conn ConnMetadata) ([]byte, error) {
 	return AggregateKeysFromSpecs(
 		specs,
 		[]string{"AuthorizedKeysFile"},
@@ -153,7 +153,7 @@ func GetAllAuthorizedKeysFromSpecs(specs []interface{}, conn ConnMetadata) ([]by
 
 // GetAllTrustedUserCAKeysFromSpecs loads and aggregates all trusted CA public keys from a slice of 'from' specs.
 // Moved from skelpipe.go.
-func GetAllTrustedUserCAKeysFromSpecs(specs []interface{}, conn ConnMetadata) ([]byte, error) {
+func GetAllTrustedUserCAKeysFromSpecs(specs []any, conn ConnMetadata) ([]byte, error) {
 	return AggregateKeysFromSpecs(
 		specs,
 		[]string{"TrustedUserCAKeysFile"},
@@ -172,7 +172,7 @@ func GetAllTrustedUserCAKeysFromSpecs(specs []interface{}, conn ConnMetadata) ([
 // vars: variable map for expansion
 // baseDir: base directory for relative file paths
 // vaultField: the field name to use for Vault secret lookup (e.g., "ssh-key", "ca-key")
-func AggregateKeysFromSpecs(specs []interface{}, keyFileFields, keyDataFields []string, vars map[string]string, baseDir string, vaultField string) ([]byte, error) {
+func AggregateKeysFromSpecs(specs []any, keyFileFields, keyDataFields []string, vars map[string]string, baseDir string, vaultField string) ([]byte, error) {
 	var all [][]byte
 	for _, spec := range specs {
 		v := reflect.ValueOf(spec).Elem()
@@ -310,7 +310,7 @@ var KeyboardInteractiveCallback func(user, instruction, question string, echo bo
 // Example usage:
 //
 //	val, err := FlexibleFieldLookup(spec, []string{"PasswordField", "password"})
-func FlexibleFieldLookup(spec interface{}, fieldNames []string) (string, error) {
+func FlexibleFieldLookup(spec any, fieldNames []string) (string, error) {
 	v := reflect.ValueOf(spec).Elem()
 	for _, fname := range fieldNames {
 		f := v.FieldByName(fname)
@@ -370,7 +370,7 @@ func NewVaultClient() (*vault.Client, error) {
 // Example usage:
 //
 //	data, err := getSecret("secret/data/mykey")
-func getSecret(path string) (map[string]interface{}, error) {
+func getSecret(path string) (map[string]any, error) {
 	client, err := NewVaultClient()
 	if err != nil {
 		return nil, err
@@ -403,7 +403,7 @@ var (
 )
 
 type vaultCacheEntry struct {
-	secretData map[string]interface{}
+	secretData map[string]any
 	expiry     time.Time
 }
 
@@ -412,7 +412,7 @@ type vaultCacheEntry struct {
 // Example usage:
 //
 //	data, err := GetSecret("secret/data/mykey")
-func GetSecret(path string) (map[string]interface{}, error) {
+func GetSecret(path string) (map[string]any, error) {
 	vaultCacheMutex.RLock()
 	entry, found := vaultCache[path]
 	vaultCacheMutex.RUnlock()

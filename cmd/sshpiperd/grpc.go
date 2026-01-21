@@ -61,6 +61,7 @@ func createNetGrpcPlugin(args []string) (grpcPlugin *plugin.GrpcPlugin, err erro
 
 				config := &tls.Config{
 					Certificates: []tls.Certificate{clientCert},
+					MinVersion:   tls.VersionTLS12,
 				}
 
 				cacert := c.String("cacert")

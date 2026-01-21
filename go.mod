@@ -43,6 +43,7 @@ require (
 	github.com/fxamacker/cbor/v2 v2.8.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/golang-jwt/jwt/v5 v5.2.2 // indirect
 	github.com/google/gnostic-models v0.6.9 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect

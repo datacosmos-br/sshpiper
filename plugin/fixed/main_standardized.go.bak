@@ -1,0 +1,211 @@
+package main
+
+import (
+	"github.com/tg123/sshpiper/libplugin"
+	"github.com/urfave/cli/v2"
+	log "github.com/sirupsen/logrus"
+)
+
+// FixedPlugin implements the standardized plugin interface for simple fixed target routing
+type FixedPlugin struct {
+	*libplugin.StandardPluginBase
+}
+
+// FixedPluginConfig represents the configuration for the fixed plugin
+type FixedPluginConfig struct {
+	Target string `json:"target"`
+}
+
+// NewFixedPlugin creates a new standardized fixed plugin
+func NewFixedPlugin() *FixedPlugin {
+	base := libplugin.NewStandardPluginBase("fixed", "1.0.0")
+	
+	return &FixedPlugin{
+		StandardPluginBase: base,
+	}
+}
+
+// GetName returns the plugin name
+func (fp *FixedPlugin) GetName() string {
+	return "fixed"
+}
+
+// GetVersion returns the plugin version
+func (fp *FixedPlugin) GetVersion() string {
+	return "1.0.0"
+}
+
+// GetDescription returns the plugin description
+func (fp *FixedPlugin) GetDescription() string {
+	return "Fixed target SSH proxy - routes all connections to a single configured target host"
+}
+
+// GetType returns the plugin type
+func (fp *FixedPlugin) GetType() libplugin.PluginType {
+	return libplugin.PluginTypeSimpleAuth
+}
+
+// GetFlags returns plugin-specific CLI flags
+func (fp *FixedPlugin) GetFlags() []cli.Flag {
+	return []cli.Flag{
+		&cli.StringFlag{
+			Name:     "target",
+			Usage:    "target SSH endpoint address (host:port format)",
+			EnvVars:  []string{"SSHPIPERD_FIXED_TARGET"},
+			Required: true,
+		},
+	}
+}
+
+// ParseConfig parses the CLI context into plugin configuration
+func (fp *FixedPlugin) ParseConfig(c *cli.Context) (interface{}, error) {
+	target := c.String("target")
+	
+	// Validate target format
+	if err := fp.Validator.ValidateRequired("target", target); err != nil {
+		return nil, fp.ErrorHandler.WrapError("target validation failed", err)
+	}
+	
+	// Additional validation using validation framework
+	validation := libplugin.NewStandardValidation(fp.Name)
+	
+	// Parse and validate host:port
+	host, port, err := libplugin.SplitHostPortForSSH(target)
+	if err != nil {
+		return nil, fp.ErrorHandler.WrapError("failed to parse target host:port", err)
+	}
+	
+	// Validate host and port
+	hostResult := validation.ValidateValue("host", host)
+	portResult := validation.ValidateValue("port", port)
+	
+	if !hostResult.Valid {
+		return nil, fp.ErrorHandler.WrapError("host validation failed", fmt.Errorf("%v", hostResult.Errors))
+	}
+	
+	if !portResult.Valid {
+		return nil, fp.ErrorHandler.WrapError("port validation failed", fmt.Errorf("%v", portResult.Errors))
+	}
+	
+	// Log warnings if any
+	for _, warning := range hostResult.Warnings {
+		fp.Logger.Debug("host validation warning: " + warning)
+	}
+	for _, warning := range portResult.Warnings {
+		fp.Logger.Debug("port validation warning: " + warning)
+	}
+	
+	config := &FixedPluginConfig{
+		Target: target,
+	}
+	
+	fp.Logger.Info("fixed plugin configuration parsed", log.Fields{
+		"target": target,
+		"host":   host,
+		"port":   port,
+	})
+	
+	return config, nil
+}
+
+// ValidateConfig validates the plugin configuration
+func (fp *FixedPlugin) ValidateConfig(config interface{}) error {
+	fixedConfig, ok := config.(*FixedPluginConfig)
+	if !ok {
+		return fp.ErrorHandler.WrapError("invalid config type", nil)
+	}
+	
+	// Re-validate the target to ensure it's still valid
+	host, port, err := libplugin.SplitHostPortForSSH(fixedConfig.Target)
+	if err != nil {
+		return fp.ErrorHandler.WrapError("target validation failed during config validation", err)
+	}
+	
+	// Use connection validator for comprehensive validation
+	validator := libplugin.NewConnectionValidator(fp.Name, libplugin.ValidationLevelStandard)
+	result := validator.ValidateConnection(nil, host, port, "")
+	
+	if !result.Valid {
+		return fp.ErrorHandler.WrapError("connection validation failed", fmt.Errorf("%v", result.Errors))
+	}
+	
+	fp.Logger.Info("fixed plugin configuration validated successfully", log.Fields{
+		"target":        fixedConfig.Target,
+		"warning_count": len(result.Warnings),
+	})
+	
+	return nil
+}
+
+// ListPipes is not used for simple auth plugins
+func (fp *FixedPlugin) ListPipes(config interface{}) ([]libplugin.SkelPipe, error) {
+	return nil, fmt.Errorf("fixed plugin uses simple auth mode, not skel mode")
+}
+
+// TestPassword implements password authentication with standardized upstream creation
+func (fp *FixedPlugin) TestPassword(config interface{}, conn libplugin.ConnMetadata, password []byte) (*libplugin.Upstream, error) {
+	fixedConfig, ok := config.(*FixedPluginConfig)
+	if !ok {
+		return nil, fp.ErrorHandler.WrapError("invalid config type in TestPassword", nil)
+	}
+	
+	return fp.LogOperation("test_password", func() (*libplugin.Upstream, error) {
+		// Validate connection metadata
+		validation := libplugin.NewStandardValidation(fp.Name)
+		connResult := validation.ValidateValue("connection", conn)
+		if !connResult.Valid {
+			return nil, fp.ErrorHandler.WrapError("connection validation failed", fmt.Errorf("%v", connResult.Errors))
+		}
+		
+		// Validate password
+		passwordResult := validation.ValidateValue("password", password)
+		if !passwordResult.Valid {
+			return nil, fp.ErrorHandler.WrapError("password validation failed", fmt.Errorf("%v", passwordResult.Errors))
+		}
+		
+		// Parse target
+		host, portStr, err := libplugin.SplitHostPortForSSH(fixedConfig.Target)
+		if err != nil {
+			return nil, fp.ErrorHandler.WrapError("failed to parse target", err)
+		}
+		
+		port, err := strconv.Atoi(portStr)
+		if err != nil {
+			return nil, fp.ErrorHandler.WrapError("invalid port", err)
+		}
+		
+		// Create upstream using standardized factory
+		upstreamFactory := libplugin.NewStandardUpstreamFactory(fp.Name)
+		upstream, err := upstreamFactory.CreatePasswordUpstream(
+			host,
+			port,
+			conn.User(), // Use the same username as the connecting user
+			string(password),
+			true, // Ignore host key for simplicity (could be configurable)
+		)
+		
+		if err != nil {
+			return nil, fp.ErrorHandler.WrapError("failed to create upstream", err)
+		}
+		
+		fp.Logger.Info("routing connection to fixed target", log.Fields{
+			"user":   conn.User(),
+			"target": fixedConfig.Target,
+			"source": conn.RemoteAddr().String(),
+		})
+		
+		return upstream, nil
+	})
+}
+
+// AuthorizedKeys implements public key authentication (optional for fixed plugin)
+func (fp *FixedPlugin) AuthorizedKeys(config interface{}, conn libplugin.ConnMetadata, key []byte) (*libplugin.Upstream, error) {
+	// Fixed plugin doesn't typically support key auth, but we can implement it for completeness
+	return nil, fmt.Errorf("fixed plugin does not support public key authentication")
+}
+
+// Main function using standardized framework
+func main() {
+	plugin := NewFixedPlugin()
+	libplugin.RunStandardPlugin(plugin)
+}

@@ -6,7 +6,7 @@ import (
 
 // GetAnnotations returns the annotations map from an object embedding ObjectMeta or with an Annotations field.
 // Returns nil if not found or not a map[string]string.
-func GetAnnotations(obj interface{}) map[string]string {
+func GetAnnotations(obj any) map[string]string {
 	v := reflect.ValueOf(obj)
 	if v.Kind() == reflect.Ptr {
 		v = v.Elem()

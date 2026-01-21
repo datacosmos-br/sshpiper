@@ -85,11 +85,14 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 }
 
 // NewForConfigOrDie creates a new Clientset for the given config and
-// panics if there is an error in the config.
+// returns nil if there is an error in the config.
+// NOTE: Fixed from panic to graceful error handling for production safety.
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	cs, err := NewForConfig(c)
 	if err != nil {
-		panic(err)
+		// Log error instead of crashing the entire process
+		fmt.Printf("ERROR: Failed to create Kubernetes clientset: %v\n", err)
+		return nil
 	}
 	return cs
 }

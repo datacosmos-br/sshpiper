@@ -40,8 +40,8 @@ type SkelPipeInterface interface {
 //
 //	wrapper := SkelPipeWrapper{Plugin: plugin, Pipe: pipe}
 type SkelPipeWrapper struct {
-	Plugin interface{}
-	Pipe   interface{}
+	Plugin any
+	Pipe   any
 }
 
 // NewSkelPipeWrapper constructs a new SkelPipeWrapper.
@@ -49,7 +49,7 @@ type SkelPipeWrapper struct {
 // Example usage:
 //
 //	wrapper := NewSkelPipeWrapper(plugin, pipe)
-func NewSkelPipeWrapper(plugin, pipe interface{}) SkelPipeWrapper {
+func NewSkelPipeWrapper(plugin, pipe any) SkelPipeWrapper {
 	return SkelPipeWrapper{
 		Plugin: plugin,
 		Pipe:   pipe,
@@ -74,7 +74,7 @@ type SkelPipeToWrapper struct {
 // Example usage:
 //
 //	to := NewSkelPipeToWrapper(plugin, pipe, username, hostname, ignoreHostKey, knownHostsFn)
-func NewSkelPipeToWrapper(plugin, pipe interface{}, username, hostname string, ignoreHostKey bool, knownHostsFn func(conn ConnMetadata) ([]byte, error)) SkelPipeToWrapper {
+func NewSkelPipeToWrapper(plugin, pipe any, username, hostname string, ignoreHostKey bool, knownHostsFn func(conn ConnMetadata) ([]byte, error)) SkelPipeToWrapper {
 	return SkelPipeToWrapper{
 		SkelPipeWrapper:  NewSkelPipeWrapper(plugin, pipe),
 		Username:         username,
@@ -122,7 +122,7 @@ type SkelPipeFromWrapper struct {
 // Example usage:
 //
 //	from := NewSkelPipeFromWrapper(plugin, pipe, matchConnFn)
-func NewSkelPipeFromWrapper(plugin, pipe interface{}, matchConnFn func(conn ConnMetadata) (SkelPipeToInterface, error)) SkelPipeFromWrapper {
+func NewSkelPipeFromWrapper(plugin, pipe any, matchConnFn func(conn ConnMetadata) (SkelPipeToInterface, error)) SkelPipeFromWrapper {
 	return SkelPipeFromWrapper{
 		SkelPipeWrapper: NewSkelPipeWrapper(plugin, pipe),
 		MatchConnFn:     matchConnFn,
@@ -143,7 +143,7 @@ func (s *SkelPipeFromWrapper) MatchConn(conn ConnMetadata) (SkelPipeToInterface,
 // Example usage:
 //
 //	froms := FromGeneric(plugin, to, fromSpecs, matchConnFn, knownHostsFn)
-func FromGeneric(plugin, to interface{}, fromSpecs []interface{}, matchConnFn func(from interface{}, conn ConnMetadata) (SkelPipeToInterface, error), knownHostsFn func(to interface{}, conn ConnMetadata) ([]byte, error)) []SkelPipeFromInterface {
+func FromGeneric(plugin, to any, fromSpecs []any, matchConnFn func(from any, conn ConnMetadata) (SkelPipeToInterface, error), knownHostsFn func(to any, conn ConnMetadata) ([]byte, error)) []SkelPipeFromInterface {
 	var froms []SkelPipeFromInterface
 	for _, f := range fromSpecs {
 		fn := func(conn ConnMetadata) (SkelPipeToInterface, error) {
@@ -160,7 +160,7 @@ func FromGeneric(plugin, to interface{}, fromSpecs []interface{}, matchConnFn fu
 // Example usage:
 //
 //	pipes, err := ListPipeGeneric(listFn, pluginCtor)
-func ListPipeGeneric(listFn func() ([]interface{}, error), pluginCtor func(interface{}) SkelPipeInterface) ([]SkelPipeInterface, error) {
+func ListPipeGeneric(listFn func() ([]any, error), pluginCtor func(any) SkelPipeInterface) ([]SkelPipeInterface, error) {
 	pipes, err := listFn()
 	if err != nil {
 		return nil, err
@@ -173,9 +173,9 @@ func ListPipeGeneric(listFn func() ([]interface{}, error), pluginCtor func(inter
 }
 
 // ExtractSpecs returns a slice of pointers to each element in a slice.
-// Useful for plugins to convert a typed slice to []interface{} for generic SkelPipe logic.
-func ExtractSpecs[T any](slice []T) []interface{} {
-	out := make([]interface{}, len(slice))
+// Useful for plugins to convert a typed slice to []any for generic SkelPipe logic.
+func ExtractSpecs[T any](slice []T) []any {
+	out := make([]any, len(slice))
 	for i := range slice {
 		out[i] = &slice[i]
 	}

@@ -1,0 +1,98 @@
+# Docker Plugin E2E Test Configuration
+version: "3.8"
+
+services:
+  # Test SSH targets for Docker plugin
+  ssh-target-1:
+    image: linuxserver/openssh-server:latest
+    container_name: ssh-target-1
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+      - PUBLIC_KEY=${TEST_PUBLIC_KEY}
+      - USER_NAME=dockeruser
+      - USER_PASSWORD=testpassword123
+      - PASSWORD_ACCESS=true
+      - SUDO_ACCESS=true
+    volumes:
+      - /tmp/shared:/shared
+    labels:
+      - "sshpiper.host=ssh-target-1"
+      - "sshpiper.port=2222"
+      - "sshpiper.user=dockeruser"
+      - "sshpiper.auth=password"
+    networks:
+      - sshpiper-test
+
+  ssh-target-2:
+    image: linuxserver/openssh-server:latest  
+    container_name: ssh-target-2
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+      - PUBLIC_KEY=${TEST_PUBLIC_KEY}
+      - USER_NAME=dockerkey
+      - PASSWORD_ACCESS=false
+      - SUDO_ACCESS=true
+    volumes:
+      - /tmp/shared:/shared
+    labels:
+      - "sshpiper.host=ssh-target-2"
+      - "sshpiper.port=2222"
+      - "sshpiper.user=dockerkey"
+      - "sshpiper.auth=publickey"
+    networks:
+      - sshpiper-test
+
+  # Multi-container target for load balancing tests
+  ssh-target-multi-1:
+    image: linuxserver/openssh-server:latest
+    container_name: ssh-target-multi-1
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+      - USER_NAME=multiuser
+      - USER_PASSWORD=testpassword123
+      - PASSWORD_ACCESS=true
+    volumes:
+      - /tmp/shared:/shared
+    labels:
+      - "sshpiper.host=ssh-target-multi-1"
+      - "sshpiper.port=2222"
+      - "sshpiper.user=multiuser"
+      - "sshpiper.group=multi"
+      - "sshpiper.auth=password"
+    networks:
+      - sshpiper-test
+
+  ssh-target-multi-2:
+    image: linuxserver/openssh-server:latest
+    container_name: ssh-target-multi-2
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+      - USER_NAME=multiuser
+      - USER_PASSWORD=testpassword123
+      - PASSWORD_ACCESS=true
+    volumes:
+      - /tmp/shared:/shared
+    labels:
+      - "sshpiper.host=ssh-target-multi-2"
+      - "sshpiper.port=2222"
+      - "sshpiper.user=multiuser"
+      - "sshpiper.group=multi"
+      - "sshpiper.auth=password"
+    networks:
+      - sshpiper-test
+
+networks:
+  sshpiper-test:
+    driver: bridge
+
+volumes:
+  shared:
+    driver: local

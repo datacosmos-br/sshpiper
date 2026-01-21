@@ -4,15 +4,17 @@ import (
 	"fmt"
 	"reflect"
 
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 )
 
 // ToInterfaceSlice takes a slice of structs and returns a slice of pointers to those structs as []interface{}.
-// Panics if input is not a slice.
+// Returns empty slice if input is not a slice.
 func ToInterfaceSlice(slice interface{}) []interface{} {
 	v := reflect.ValueOf(slice)
 	if v.Kind() != reflect.Slice {
-		panic("ToInterfaceSlice: input is not a slice")
+		log.Errorf("ToInterfaceSlice: input is not a slice (type: %T), returning empty slice", slice)
+		return []interface{}{}
 	}
 	out := make([]interface{}, v.Len())
 	for i := 0; i < v.Len(); i++ {

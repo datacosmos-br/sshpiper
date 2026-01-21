@@ -7,6 +7,7 @@ import (
 	"net"
 	"os/exec"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
@@ -163,7 +164,7 @@ func (m *PluginConnMeta) ChallengedUsername() string {
 }
 
 // Meta implements ssh.ChallengeContext
-func (m *PluginConnMeta) Meta() interface{} {
+func (m *PluginConnMeta) Meta() any {
 	return m
 }
 
@@ -208,9 +209,16 @@ func toMeta(challengeCtx ssh.ChallengeContext, conn ssh.ConnMetadata) *libplugin
 	case *chainConnMeta:
 		meta.UserName = conn.User()
 		return (*libplugin.ConnMeta)(&meta.PluginConnMeta)
+	default:
+		// Handle unknown challenge context gracefully
+		log.Errorf("unknown challenge context type: %T, creating fallback meta", challengeCtx)
+		return &libplugin.ConnMeta{
+			UniqId:   fmt.Sprintf("unknown-%d", time.Now().UnixNano()),
+			UserName: conn.User(),
+			FromAddr: conn.RemoteAddr().String(),
+			Metadata: make(map[string]string),
+		}
 	}
-
-	panic("unknown challenge context")
 }
 
 func (g *GrpcPlugin) NextAuthMethodsRemote(conn ssh.ConnMetadata, challengeCtx ssh.ChallengeContext) ([]string, error) {
@@ -614,6 +622,9 @@ func GetUniqueID(ctx ssh.ChallengeContext) string {
 		return meta.UniqId
 	case *chainConnMeta:
 		return meta.UniqId
+	default:
+		// Handle unknown challenge context gracefully
+		log.Errorf("unknown challenge context type: %T, generating fallback ID", ctx)
+		return fmt.Sprintf("unknown-%d", time.Now().UnixNano())
 	}
-	panic("unknown challenge context")
 }

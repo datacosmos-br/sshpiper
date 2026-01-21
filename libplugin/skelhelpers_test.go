@@ -268,12 +268,12 @@ func TestLooksLikeBase64(t *testing.T) {
 		input    string
 		expected bool
 	}{
-		{"SGVsbG8gV29ybGQ=", true},          // "Hello World" in base64
-		{"simple-password", false},          // Simple text
-		{"", false},                        // Empty string
-		{"abc", false},                     // Too short
-		{"SGVsbG8gV29ybGQhISE=", true},     // Valid base64
-		{"not-base64-data!", false},        // Contains invalid chars
+		{"SGVsbG8gV29ybGQ=", true},     // "Hello World" in base64
+		{"simple-password", false},     // Simple text
+		{"", false},                    // Empty string
+		{"abc", false},                 // Too short
+		{"SGVsbG8gV29ybGQhISE=", true}, // Valid base64
+		{"not-base64-data!", false},    // Contains invalid chars
 	}
 
 	for _, tt := range tests {
@@ -288,11 +288,11 @@ func TestLooksLikeBase64(t *testing.T) {
 
 func TestStandardIgnoreHostKey(t *testing.T) {
 	tests := []struct {
-		name            string
-		ignoreHostKey   bool
-		knownHostsData  string
-		knownHostsFile  string
-		expectedIgnore  bool
+		name           string
+		ignoreHostKey  bool
+		knownHostsData string
+		knownHostsFile string
+		expectedIgnore bool
 	}{
 		{
 			name:           "explicit ignore",
@@ -300,21 +300,21 @@ func TestStandardIgnoreHostKey(t *testing.T) {
 			expectedIgnore: true,
 		},
 		{
-			name:            "no known hosts configured",
-			ignoreHostKey:   false,
-			expectedIgnore:  true, // Default to ignore when no known hosts
+			name:           "no known hosts configured",
+			ignoreHostKey:  false,
+			expectedIgnore: true, // Default to ignore when no known hosts
 		},
 		{
-			name:            "known hosts data provided",
-			ignoreHostKey:   false,
-			knownHostsData:  "example.com ssh-rsa AAAAB3...",
-			expectedIgnore:  false,
+			name:           "known hosts data provided",
+			ignoreHostKey:  false,
+			knownHostsData: "example.com ssh-rsa AAAAB3...",
+			expectedIgnore: false,
 		},
 		{
-			name:            "known hosts file provided",
-			ignoreHostKey:   false,
-			knownHostsFile:  "/etc/ssh/known_hosts",
-			expectedIgnore:  false,
+			name:           "known hosts file provided",
+			ignoreHostKey:  false,
+			knownHostsFile: "/etc/ssh/known_hosts",
+			expectedIgnore: false,
 		},
 	}
 

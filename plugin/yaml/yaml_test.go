@@ -280,7 +280,7 @@ func TestYamlPlugin_Authentication(t *testing.T) {
 		name       string
 		configYAML string
 		authType   string
-		authData   interface{}
+		authData   any
 		expectAuth bool
 	}{
 		{

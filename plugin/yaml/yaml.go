@@ -1,7 +1,10 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/tg123/sshpiper/libplugin"
 	"gopkg.in/yaml.v3"
@@ -79,32 +82,65 @@ type piperConfig struct {
 	filename string
 }
 
-// loadFileOrDecodeMany loads YAML configuration from file or data and returns bytes for known hosts
+// loadFileOrDecodeMany loads configuration from files or inline data with proper variable substitution
 func (c *piperConfig) loadFileOrDecodeMany(files listOrString, data listOrString, variables map[string]string) ([]byte, error) {
-	// This method combines multiple known hosts files/data into single byte array
 	var result []byte
 
-	// Process files
+	// Process files - actually read from filesystem
 	for _, file := range files.Combine() {
-		// Apply variable substitution
-		processedFile := file
-		for _, value := range variables {
-			processedFile = fmt.Sprintf(processedFile, value)
+		if file == "" {
+			continue
 		}
-		// In real implementation, would read file content
-		result = append(result, []byte(processedFile+"\n")...)
+
+		// Apply variable substitution to file path
+		processedFile := c.expandVariables(file, variables)
+
+		// Read actual file content
+		content, err := os.ReadFile(processedFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read file %s: %w", processedFile, err)
+		}
+
+		// Apply variable substitution to file content
+		processedContent := c.expandVariables(string(content), variables)
+		result = append(result, []byte(processedContent)...)
+		if !strings.HasSuffix(processedContent, "\n") {
+			result = append(result, '\n')
+		}
 	}
 
-	// Process inline data
+	// Process inline data with proper base64 handling
 	for _, dataStr := range data.Combine() {
-		// Apply variable substitution
-		processedData := dataStr
-		for _, value := range variables {
-			processedData = fmt.Sprintf(processedData, value)
+		if dataStr == "" {
+			continue
 		}
-		result = append(result, []byte(processedData+"\n")...)
+
+		// Try to decode as base64 first
+		if decoded, err := base64.StdEncoding.DecodeString(dataStr); err == nil {
+			// Apply variable substitution to decoded content
+			processedData := c.expandVariables(string(decoded), variables)
+			result = append(result, []byte(processedData)...)
+		} else {
+			// Treat as raw data and apply variable substitution
+			processedData := c.expandVariables(dataStr, variables)
+			result = append(result, []byte(processedData)...)
+		}
+
+		if !strings.HasSuffix(string(result), "\n") {
+			result = append(result, '\n')
+		}
 	}
 
 	return result, nil
 }
 
+// expandVariables performs variable substitution using the provided variable map
+func (c *piperConfig) expandVariables(template string, variables map[string]string) string {
+	result := template
+	for key, value := range variables {
+		// Replace ${VAR} and $VAR patterns
+		result = strings.ReplaceAll(result, "${"+key+"}", value)
+		result = strings.ReplaceAll(result, "$"+key, value)
+	}
+	return result
+}

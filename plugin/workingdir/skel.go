@@ -67,15 +67,15 @@ func (s *skelpipeWrapper) From() []skel.SkelPipeFrom {
 	}
 }
 
-func (s *skelpipeWrapper) User(conn libplugin.ConnMetadata) string {
+func (s *skelpipeWrapper) User(_ libplugin.ConnMetadata) string {
 	return s.username
 }
 
-func (s *skelpipeWrapper) Host(conn libplugin.ConnMetadata) string {
+func (s *skelpipeWrapper) Host(_ libplugin.ConnMetadata) string {
 	return s.host
 }
 
-func (s *skelpipeWrapper) IgnoreHostKey(conn libplugin.ConnMetadata) bool {
+func (s *skelpipeWrapper) IgnoreHostKey(_ libplugin.ConnMetadata) bool {
 	// Use standard helper for host key ignoring logic
 	knownHostsFile := ""
 	if s.dir.Exists(userKnownHosts) {
@@ -126,7 +126,7 @@ func (s *skelpipeWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata) ([]byte
 	return libplugin.StandardTrustedUserCAKeys("", caKeysFile, envVars, s.dir.Path)
 }
 
-func (s *skelpipeFromWrapper) MatchConn(conn libplugin.ConnMetadata) (skel.SkelPipeTo, error) {
+func (s *skelpipeFromWrapper) MatchConn(_ libplugin.ConnMetadata) (skel.SkelPipeTo, error) {
 	if s.dir.Exists(userKeyFile) {
 		return &skelpipeToPrivateKeyWrapper{
 			skelpipeToWrapper: skelpipeToWrapper(*s),

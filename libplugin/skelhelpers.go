@@ -368,6 +368,21 @@ func (sl *StandardLogger) Debug(message string, fields ...log.Fields) {
 	entry.Debug(message)
 }
 
+// Warn logs warning message with standard fields
+func (sl *StandardLogger) Warn(message string, fields ...log.Fields) {
+	entry := sl.Logger.WithFields(sl.Fields)
+	for _, f := range fields {
+		entry = entry.WithFields(f)
+	}
+	entry.Warn(message)
+}
+
+// WithFields returns a logrus entry with fields for more complex logging
+func (sl *StandardLogger) WithFields(fields log.Fields) *log.Entry {
+	entry := sl.Logger.WithFields(sl.Fields)
+	return entry.WithFields(fields)
+}
+
 // StandardMetrics provides consistent metrics collection
 type StandardMetrics struct {
 	PluginName string

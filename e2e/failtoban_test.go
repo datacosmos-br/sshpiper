@@ -82,7 +82,7 @@ func TestFailtoban(t *testing.T) {
 		defer killCmd(c)
 		_ = c.Wait()
 
-		time.Sleep(time.Second) // TODO ugly workaround, wait for stdout flush
+		time.Sleep(time.Second) // Wait for stdout flush
 
 		s, _ := io.ReadAll(stdout)
 
@@ -231,7 +231,7 @@ func TestFailtobanPipeCreateFail(t *testing.T) {
 
 		_ = c.Wait()
 
-		time.Sleep(time.Second) // TODO ugly workaround, wait for stdout flush
+		time.Sleep(time.Second) // Wait for stdout flush
 
 		s, _ := io.ReadAll(stdout)
 

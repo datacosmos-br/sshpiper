@@ -283,9 +283,9 @@ pipes:
 			if tt.name == "public key authentication" {
 				privKey, pubKey, err := fw.CreateSSHKeyPair()
 				fw.AssertNoError(err, "Failed to create key pair")
-				
+
 				config = fmt.Sprintf(tt.yamlConfig, pubKey)
-				
+
 				signer, err := ssh.ParsePrivateKey(privKey)
 				fw.AssertNoError(err, "Failed to parse private key")
 				tt.authMethod = ssh.PublicKeys(signer)

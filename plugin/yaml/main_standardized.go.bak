@@ -1,0 +1,526 @@
+package main
+
+import (
+	"github.com/tg123/sshpiper/libplugin"
+	"github.com/urfave/cli/v2"
+)
+
+// YAMLPlugin implements the standardized plugin interface
+type YAMLPlugin struct {
+	*libplugin.StandardPluginBase
+	
+	// Configuration
+	FileGlobs    cli.StringSlice
+	NoCheckPerm  bool
+}
+
+// NewYAMLPlugin creates a new standardized YAML plugin
+func NewYAMLPlugin() *YAMLPlugin {
+	base := libplugin.NewStandardPluginBase("yaml", "1.0.0")
+	
+	return &YAMLPlugin{
+		StandardPluginBase: base,
+		FileGlobs:          cli.StringSlice{},
+		NoCheckPerm:        false,
+	}
+}
+
+// GetName returns the plugin name
+func (yp *YAMLPlugin) GetName() string {
+	return "yaml"
+}
+
+// GetVersion returns the plugin version
+func (yp *YAMLPlugin) GetVersion() string {
+	return "1.0.0"
+}
+
+// GetDescription returns the plugin description
+func (yp *YAMLPlugin) GetDescription() string {
+	return "YAML configuration-based SSH pipe routing with declarative user and host mapping"
+}
+
+// GetType returns the plugin type
+func (yp *YAMLPlugin) GetType() libplugin.PluginType {
+	return libplugin.PluginTypeFileBased
+}
+
+// GetFlags returns plugin-specific CLI flags
+func (yp *YAMLPlugin) GetFlags() []cli.Flag {
+	return []cli.Flag{
+		&cli.StringSliceFlag{
+			Name:        "config",
+			Usage:       "path to yaml config files, can be globs as well",
+			Required:    true,
+			EnvVars:     []string{"SSHPIPERD_YAML_CONFIG"},
+			Destination: &yp.FileGlobs,
+		},
+		&cli.BoolFlag{
+			Name:        "no-check-perm",
+			Usage:       "disable 0400 permission checking for security",
+			EnvVars:     []string{"SSHPIPERD_YAML_NOCHECKPERM"},
+			Destination: &yp.NoCheckPerm,
+		},
+	}
+}
+
+// YAMLPluginConfig represents the parsed YAML plugin configuration
+type YAMLPluginConfig struct {
+	FileGlobs   []string `json:"file_globs"`
+	NoCheckPerm bool     `json:"no_check_perm"`
+	
+	// Parsed configuration data
+	ConfigFiles []*PiperConfig `json:"config_files,omitempty"`
+}
+
+// ParseConfig parses the CLI context into plugin configuration
+func (yp *YAMLPlugin) ParseConfig(c *cli.Context) (interface{}, error) {
+	config := &YAMLPluginConfig{
+		FileGlobs:   yp.FileGlobs.Value(),
+		NoCheckPerm: yp.NoCheckPerm,
+	}
+	
+	// Load and parse YAML configuration files
+	configFiles, err := yp.loadConfigFiles(config.FileGlobs, config.NoCheckPerm)
+	if err != nil {
+		return nil, yp.ErrorHandler.WrapError("failed to load YAML config files", err)
+	}
+	
+	config.ConfigFiles = configFiles
+	
+	yp.Logger.Info("YAML plugin configuration parsed", libplugin.LogFields{
+		"file_count":    len(config.ConfigFiles),
+		"no_check_perm": config.NoCheckPerm,
+	})
+	
+	return config, nil
+}
+
+// ValidateConfig validates the plugin configuration
+func (yp *YAMLPlugin) ValidateConfig(config interface{}) error {
+	yamlConfig, ok := config.(*YAMLPluginConfig)
+	if !ok {
+		return yp.ErrorHandler.WrapError("invalid config type", nil)
+	}
+	
+	// Validate required fields
+	if err := yp.Validator.ValidateRequired("file_globs", yamlConfig.FileGlobs); err != nil {
+		return err
+	}
+	
+	// Validate each configuration file
+	for i, configFile := range yamlConfig.ConfigFiles {
+		if err := yp.validateConfigFile(configFile, i); err != nil {
+			return yp.ErrorHandler.WrapError(fmt.Sprintf("validation failed for config file %d", i), err)
+		}
+	}
+	
+	yp.Logger.Info("YAML plugin configuration validated successfully", libplugin.LogFields{
+		"config_files": len(yamlConfig.ConfigFiles),
+	})
+	
+	return nil
+}
+
+// ListPipes implements the core plugin functionality
+func (yp *YAMLPlugin) ListPipes(config interface{}) ([]libplugin.SkelPipe, error) {
+	yamlConfig, ok := config.(*YAMLPluginConfig)
+	if !ok {
+		return nil, yp.ErrorHandler.WrapError("invalid config type in ListPipes", nil)
+	}
+	
+	return yp.LogOperation("list_pipes", func() error {
+		var allPipes []libplugin.SkelPipe
+		
+		// Process each configuration file
+		for fileIndex, configFile := range yamlConfig.ConfigFiles {
+			yp.Logger.Debug("processing config file", libplugin.LogFields{
+				"file_index": fileIndex,
+				"file_name":  configFile.filename,
+				"pipe_count": len(configFile.Pipes),
+			})
+			
+			// Convert each YAML pipe to a skel pipe
+			for pipeIndex, yamlPipe := range configFile.Pipes {
+				skelPipe, err := yp.createSkelPipeFromYAML(yamlPipe, configFile, fileIndex, pipeIndex)
+				if err != nil {
+					return yp.ErrorHandler.WrapError(fmt.Sprintf("failed to create skel pipe %d from file %d", pipeIndex, fileIndex), err)
+				}
+				
+				allPipes = append(allPipes, skelPipe)
+			}
+		}
+		
+		yp.Logger.Info("pipes listed successfully", libplugin.LogFields{
+			"total_pipes":    len(allPipes),
+			"config_files":   len(yamlConfig.ConfigFiles),
+		})
+		
+		return allPipes, nil
+	})
+}
+
+// TestPassword is not used for YAML plugin (uses skel framework)
+func (yp *YAMLPlugin) TestPassword(config interface{}, conn libplugin.ConnMetadata, password []byte) (*libplugin.Upstream, error) {
+	return nil, fmt.Errorf("YAML plugin uses skel framework for authentication")
+}
+
+// AuthorizedKeys is not used for YAML plugin (uses skel framework)
+func (yp *YAMLPlugin) AuthorizedKeys(config interface{}, conn libplugin.ConnMetadata, key []byte) (*libplugin.Upstream, error) {
+	return nil, fmt.Errorf("YAML plugin uses skel framework for authentication")
+}
+
+// Helper methods
+
+func (yp *YAMLPlugin) loadConfigFiles(fileGlobs []string, noCheckPerm bool) ([]*PiperConfig, error) {
+	return yp.LogOperation("load_config_files", func() ([]*PiperConfig, error) {
+		// Use the existing yamlPlugin.load functionality
+		oldPlugin := newYamlPlugin()
+		oldPlugin.FileGlobs.Set(fileGlobs)
+		oldPlugin.NoCheckPerm = noCheckPerm
+		
+		configs, err := oldPlugin.load()
+		if err != nil {
+			return nil, err
+		}
+		
+		yp.Logger.Debug("config files loaded", libplugin.LogFields{
+			"file_count": len(configs),
+		})
+		
+		return configs, nil
+	})
+}
+
+func (yp *YAMLPlugin) validateConfigFile(config *PiperConfig, index int) error {
+	// Validate version
+	if config.Version == "" {
+		return fmt.Errorf("config file %d: version is required", index)
+	}
+	
+	// Validate pipes
+	if len(config.Pipes) == 0 {
+		return fmt.Errorf("config file %d: at least one pipe is required", index)
+	}
+	
+	// Validate each pipe
+	for pipeIndex, pipe := range config.Pipes {
+		if err := yp.validateYAMLPipe(pipe, index, pipeIndex); err != nil {
+			return err
+		}
+	}
+	
+	return nil
+}
+
+func (yp *YAMLPlugin) validateYAMLPipe(pipe YAMLPipe, fileIndex, pipeIndex int) error {
+	// Validate 'from' section
+	if len(pipe.From) == 0 {
+		return fmt.Errorf("config file %d, pipe %d: 'from' section is required", fileIndex, pipeIndex)
+	}
+	
+	// Validate 'to' section
+	if err := yp.Validator.ValidateRequired(fmt.Sprintf("config file %d, pipe %d: to.host", fileIndex, pipeIndex), pipe.To.Host); err != nil {
+		return err
+	}
+	
+	// Validate host format
+	host, port, err := libplugin.SplitHostPortForSSH(pipe.To.Host)
+	if err != nil {
+		return fmt.Errorf("config file %d, pipe %d: invalid host format: %w", fileIndex, pipeIndex, err)
+	}
+	
+	// Use validation framework
+	validation := libplugin.NewStandardValidation(yp.Name)
+	hostResult := validation.ValidateValue("host", host)
+	portResult := validation.ValidateValue("port", port)
+	
+	if !hostResult.Valid || !portResult.Valid {
+		return fmt.Errorf("config file %d, pipe %d: validation failed", fileIndex, pipeIndex)
+	}
+	
+	return nil
+}
+
+func (yp *YAMLPlugin) createSkelPipeFromYAML(yamlPipe YAMLPipe, config *PiperConfig, fileIndex, pipeIndex int) (libplugin.SkelPipe, error) {
+	// Create a standardized skel pipe wrapper
+	wrapper := &YAMLSkelPipeWrapper{
+		yamlPipe:   yamlPipe,
+		config:     config,
+		fileIndex:  fileIndex,
+		pipeIndex:  pipeIndex,
+		plugin:     yp,
+	}
+	
+	return wrapper, nil
+}
+
+// YAMLSkelPipeWrapper wraps YAML pipe configuration with skel interface
+type YAMLSkelPipeWrapper struct {
+	yamlPipe  YAMLPipe
+	config    *PiperConfig
+	fileIndex int
+	pipeIndex int
+	plugin    *YAMLPlugin
+}
+
+// GetFrom returns the From configuration
+func (yw *YAMLSkelPipeWrapper) GetFrom() libplugin.SkelPipeFrom {
+	return &YAMLSkelFromWrapper{
+		yamlPipeFrom: yw.yamlPipe.From,
+		config:       yw.config,
+		plugin:       yw.plugin,
+	}
+}
+
+// GetTo returns the To configuration
+func (yw *YAMLSkelPipeWrapper) GetTo() libplugin.SkelPipeTo {
+	return &YAMLSkelToWrapper{
+		yamlPipeTo: yw.yamlPipe.To,
+		config:     yw.config,
+		plugin:     yw.plugin,
+	}
+}
+
+// YAMLSkelFromWrapper implements SkelPipeFrom using standard helpers
+type YAMLSkelFromWrapper struct {
+	yamlPipeFrom []YAMLPipeFrom
+	config       *PiperConfig
+	plugin       *YAMLPlugin
+}
+
+// GetUser returns the user pattern for matching
+func (yfw *YAMLSkelFromWrapper) GetUser() string {
+	// Return the first user pattern (YAML plugin supports multiple)
+	if len(yfw.yamlPipeFrom) > 0 {
+		return yfw.yamlPipeFrom[0].Username
+	}
+	return ""
+}
+
+// TestPassword implements password testing using standard helpers
+func (yfw *YAMLSkelFromWrapper) TestPassword(conn libplugin.ConnMetadata, password []byte) (bool, error) {
+	// Find matching 'from' configuration for the user
+	matchingFrom := yfw.findMatchingFrom(conn.User())
+	if matchingFrom == nil {
+		return false, nil
+	}
+	
+	// Use standardized password testing
+	return libplugin.StandardTestPassword(
+		matchingFrom.HtpasswdData,
+		yfw.getPasswordFile(matchingFrom),
+		conn.User(),
+		password,
+	)
+}
+
+// AuthorizedKeys implements key authentication using standard helpers
+func (yfw *YAMLSkelFromWrapper) AuthorizedKeys(conn libplugin.ConnMetadata) ([]byte, error) {
+	// Find matching 'from' configuration for the user
+	matchingFrom := yfw.findMatchingFrom(conn.User())
+	if matchingFrom == nil {
+		return nil, nil
+	}
+	
+	// Use standardized authorized keys loading
+	envVars := yfw.getEnvironmentVariables(conn)
+	baseDir := filepath.Dir(yfw.config.filename)
+	
+	return libplugin.StandardAuthorizedKeys(
+		matchingFrom.AuthorizedKeysData.Str,
+		yfw.getAuthorizedKeysFile(matchingFrom),
+		envVars,
+		baseDir,
+	)
+}
+
+// TrustedUserCAKeys implements CA key authentication using standard helpers
+func (yfw *YAMLSkelFromWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata) ([]byte, error) {
+	// Find matching 'from' configuration for the user
+	matchingFrom := yfw.findMatchingFrom(conn.User())
+	if matchingFrom == nil {
+		return nil, nil
+	}
+	
+	// Use standardized trusted CA keys loading
+	envVars := yfw.getEnvironmentVariables(conn)
+	baseDir := filepath.Dir(yfw.config.filename)
+	
+	return libplugin.StandardTrustedUserCAKeys(
+		matchingFrom.TrustedUserCAKeysData.Str,
+		yfw.getTrustedCAKeysFile(matchingFrom),
+		envVars,
+		baseDir,
+	)
+}
+
+// Helper methods
+
+func (yfw *YAMLSkelFromWrapper) findMatchingFrom(username string) *YAMLPipeFrom {
+	for _, from := range yfw.yamlPipeFrom {
+		if yfw.matchesUser(from, username) {
+			return &from
+		}
+	}
+	return nil
+}
+
+func (yfw *YAMLSkelFromWrapper) matchesUser(from YAMLPipeFrom, username string) bool {
+	if from.UsernameRegexMatch {
+		// Use regex matching
+		matched, err := regexp.MatchString(from.Username, username)
+		if err != nil {
+			yfw.plugin.Logger.Error("regex match failed", err, libplugin.LogFields{
+				"pattern": from.Username,
+				"username": username,
+			})
+			return false
+		}
+		return matched
+	}
+	
+	// Exact string matching
+	return from.Username == username
+}
+
+func (yfw *YAMLSkelFromWrapper) getPasswordFile(from *YAMLPipeFrom) string {
+	if from.HtpasswdFile != "" {
+		return filepath.Join(filepath.Dir(yfw.config.filename), from.HtpasswdFile)
+	}
+	return ""
+}
+
+func (yfw *YAMLSkelFromWrapper) getAuthorizedKeysFile(from *YAMLPipeFrom) string {
+	if from.AuthorizedKeys.Str != "" {
+		return filepath.Join(filepath.Dir(yfw.config.filename), from.AuthorizedKeys.Str)
+	}
+	if len(from.AuthorizedKeys.List) > 0 {
+		return filepath.Join(filepath.Dir(yfw.config.filename), from.AuthorizedKeys.List[0])
+	}
+	return ""
+}
+
+func (yfw *YAMLSkelFromWrapper) getTrustedCAKeysFile(from *YAMLPipeFrom) string {
+	if from.TrustedUserCAKeys.Str != "" {
+		return filepath.Join(filepath.Dir(yfw.config.filename), from.TrustedUserCAKeys.Str)
+	}
+	if len(from.TrustedUserCAKeys.List) > 0 {
+		return filepath.Join(filepath.Dir(yfw.config.filename), from.TrustedUserCAKeys.List[0])
+	}
+	return ""
+}
+
+func (yfw *YAMLSkelFromWrapper) getEnvironmentVariables(conn libplugin.ConnMetadata) map[string]string {
+	return map[string]string{
+		"USER":        conn.User(),
+		"REMOTE_ADDR": conn.RemoteAddr().String(),
+		"LOCAL_ADDR":  conn.LocalAddr().String(),
+	}
+}
+
+// YAMLSkelToWrapper implements SkelPipeTo using standard helpers
+type YAMLSkelToWrapper struct {
+	yamlPipeTo YAMLPipeTo
+	config     *PiperConfig
+	plugin     *YAMLPlugin
+}
+
+// GetHost returns the target host
+func (ytw *YAMLSkelToWrapper) GetHost() string {
+	host, _, _ := libplugin.SplitHostPortForSSH(ytw.yamlPipeTo.Host)
+	return host
+}
+
+// GetPort returns the target port
+func (ytw *YAMLSkelToWrapper) GetPort() int32 {
+	_, port, _ := libplugin.SplitHostPortForSSH(ytw.yamlPipeTo.Host)
+	portInt, _ := strconv.Atoi(port)
+	return int32(portInt)
+}
+
+// GetUser returns the target username
+func (ytw *YAMLSkelToWrapper) GetUser() string {
+	return ytw.yamlPipeTo.Username
+}
+
+// IgnoreHostKey returns whether to ignore host key validation
+func (ytw *YAMLSkelToWrapper) IgnoreHostKey() bool {
+	// Use standardized host key ignoring logic
+	return libplugin.StandardIgnoreHostKey(
+		ytw.yamlPipeTo.IgnoreHostkey,
+		ytw.yamlPipeTo.KnownHostsData.Str,
+		ytw.getKnownHostsFile(),
+	)
+}
+
+// KnownHosts returns known hosts data using standard helpers
+func (ytw *YAMLSkelToWrapper) KnownHosts() ([]byte, error) {
+	envVars := map[string]string{} // Could be expanded with connection context
+	baseDir := filepath.Dir(ytw.config.filename)
+	
+	return libplugin.StandardKnownHosts(
+		ytw.yamlPipeTo.KnownHostsData.Str,
+		ytw.getKnownHostsFile(),
+		envVars,
+		baseDir,
+	)
+}
+
+// PrivateKey returns private key data using standard helpers
+func (ytw *YAMLSkelToWrapper) PrivateKey() ([]byte, []byte, error) {
+	envVars := map[string]string{} // Could be expanded with connection context
+	baseDir := filepath.Dir(ytw.config.filename)
+	
+	return libplugin.StandardPrivateKey(
+		ytw.yamlPipeTo.PrivateKeyData,
+		ytw.getPrivateKeyFile(),
+		envVars,
+		baseDir,
+	)
+}
+
+// Password returns password data using standard helpers
+func (ytw *YAMLSkelToWrapper) Password() []byte {
+	envVars := map[string]string{} // Could be expanded with connection context
+	baseDir := filepath.Dir(ytw.config.filename)
+	
+	password, err := libplugin.StandardOverridePassword(
+		ytw.yamlPipeTo.Password,
+		"", // YAML plugin stores password directly, not in file
+		envVars,
+		baseDir,
+	)
+	
+	if err != nil {
+		ytw.plugin.Logger.Error("failed to load password", err)
+		return nil
+	}
+	
+	return password
+}
+
+// Helper methods
+
+func (ytw *YAMLSkelToWrapper) getKnownHostsFile() string {
+	if ytw.yamlPipeTo.KnownHosts.Str != "" {
+		return filepath.Join(filepath.Dir(ytw.config.filename), ytw.yamlPipeTo.KnownHosts.Str)
+	}
+	if len(ytw.yamlPipeTo.KnownHosts.List) > 0 {
+		return filepath.Join(filepath.Dir(ytw.config.filename), ytw.yamlPipeTo.KnownHosts.List[0])
+	}
+	return ""
+}
+
+func (ytw *YAMLSkelToWrapper) getPrivateKeyFile() string {
+	if ytw.yamlPipeTo.PrivateKey != "" {
+		return filepath.Join(filepath.Dir(ytw.config.filename), ytw.yamlPipeTo.PrivateKey)
+	}
+	return ""
+}
+
+// Main function using standardized framework
+func main() {
+	plugin := NewYAMLPlugin()
+	libplugin.RunStandardPlugin(plugin)
+}

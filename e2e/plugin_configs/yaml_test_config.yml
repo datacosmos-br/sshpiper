@@ -1,0 +1,178 @@
+# YAML Plugin E2E Test Configuration Template
+version: "1.0"
+
+# Environment variables for testing
+environment:
+  TEST_HOST: "ssh-target-service:2222"
+  TEST_USER: "testuser"
+  TEST_PASSWORD: "testpassword123"
+  FALLBACK_HOST: "backup-ssh-service:2222"
+
+pipes:
+  # Basic password authentication test
+  - from:
+      - username: "yamluser"
+    to:
+      host: "${TEST_HOST}"
+      username: "${TEST_USER}"
+      password: "${TEST_PASSWORD}"
+      ignore_hostkey: true
+    
+  # Regex username matching test  
+  - from:
+      - username: "^yaml_regex_(.+?)_user$"
+        username_regex_match: true
+    to:
+      host: "${TEST_HOST}"
+      username: "$1"  # Use captured group from regex
+      password: "${TEST_PASSWORD}"
+      ignore_hostkey: true
+
+  # Environment variable expansion test
+  - from:
+      - username: "yamlenv"
+    to:
+      host: "${TEST_HOST}"
+      username: "${TEST_USER}"
+      password: "${TEST_PASSWORD}"
+      ignore_hostkey: true
+      environment_expansion: true
+
+  # Public key authentication test
+  - from:
+      - username: "yamlkey"
+        authorized_keys: |
+          ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINRGTH325rDUp12tplwukHmR8ytbC9TPZ886gCstynP1 test@sshpiper
+    to:
+      host: "${TEST_HOST}"
+      username: "${TEST_USER}"
+      private_key: |
+        -----BEGIN OPENSSH PRIVATE KEY-----
+        b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+        QyNTUxOQAAACDURkx99uaw1KddraZcLpB5kfMrWwvUz2fPOoArLcpz9QAAAJC+j0+Svo9P
+        kgAAAAtzc2gtZWQyNTUxOQAAACDURkx99uaw1KddraZcLpB5kfMrWwvUz2fPOoArLcpz9Q
+        AAAEDcQgdh2z2r/6blq0ziJ1l6s6IAX8C+9QHfAH931cHNO9RGTH325rDUp12tplwukHmR
+        8ytbC9TPZ886gCstynP1AAAADWJvbGlhbkB1YnVudHU=
+        -----END OPENSSH PRIVATE KEY-----
+      ignore_hostkey: true
+
+  # Multiple target hosts with failover
+  - from:
+      - username: "yamlfailover"
+    to:
+      - host: "${TEST_HOST}"
+        username: "${TEST_USER}"
+        password: "${TEST_PASSWORD}"
+        ignore_hostkey: true
+      - host: "${FALLBACK_HOST}"
+        username: "${TEST_USER}"
+        password: "${TEST_PASSWORD}"
+        ignore_hostkey: true
+
+  # Host key validation test
+  - from:
+      - username: "yamlhostkey"
+    to:
+      host: "${TEST_HOST}"
+      username: "${TEST_USER}"
+      password: "${TEST_PASSWORD}"
+      known_hosts_data: |
+        ssh-target-service ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC7ex...
+
+  # Custom port test
+  - from:
+      - username: "yamlport"
+    to:
+      host: "custom-ssh-service"
+      port: 2223
+      username: "${TEST_USER}"
+      password: "${TEST_PASSWORD}"
+      ignore_hostkey: true
+
+  # Load balancing test
+  - from:
+      - username: "yamlbalance"
+    to:
+      - host: "ssh-target-1:2222"
+        username: "${TEST_USER}"
+        password: "${TEST_PASSWORD}"
+        weight: 70
+        ignore_hostkey: true
+      - host: "ssh-target-2:2222"
+        username: "${TEST_USER}"
+        password: "${TEST_PASSWORD}"
+        weight: 30
+        ignore_hostkey: true
+
+  # CA signed certificates test
+  - from:
+      - username: "yamlca"
+        trusted_user_ca_keys: |
+          ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC9example...
+    to:
+      host: "${TEST_HOST}"
+      username: "${TEST_USER}"
+      password: "${TEST_PASSWORD}"
+      ignore_hostkey: true
+
+  # Nested configuration with complex routing
+  - from:
+      - username: "yamlcomplex"
+        password_hash: "$2a$10$example..."  # bcrypt hash
+    to:
+      host: "${TEST_HOST}"
+      username: "${TEST_USER}"
+      password: "${TEST_PASSWORD}"
+      ignore_hostkey: true
+      additional_env:
+        YAML_TEST: "complex_routing"
+        USER_TYPE: "complex"
+
+  # Banned user test (should fail)
+  - from:
+      - username: "yamllbanned"
+        banned: true
+    to:
+      host: "${TEST_HOST}"
+      username: "${TEST_USER}"
+      password: "${TEST_PASSWORD}"
+      ignore_hostkey: true
+
+  # Rate limited user test
+  - from:
+      - username: "yamlratelimited"
+        rate_limit:
+          max_connections: 2
+          window: "1m"
+    to:
+      host: "${TEST_HOST}"
+      username: "${TEST_USER}"
+      password: "${TEST_PASSWORD}"
+      ignore_hostkey: true
+
+# Global configuration
+global:
+  default_timeout: 30s
+  max_connections_per_user: 5
+  log_level: "info"
+  audit_log: true
+  
+# Security settings
+security:
+  allowed_ciphers:
+    - "aes128-ctr"
+    - "aes192-ctr"
+    - "aes256-ctr"
+  allowed_macs:
+    - "hmac-sha2-256"
+    - "hmac-sha2-512"
+  allowed_key_exchanges:
+    - "curve25519-sha256"
+    - "diffie-hellman-group16-sha512"
+
+# Monitoring and logging
+monitoring:
+  metrics_enabled: true
+  health_check_interval: "10s"
+  connection_logging: true
+  performance_tracking: true

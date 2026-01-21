@@ -1,0 +1,173 @@
+# Kubernetes Plugin E2E Test Configuration
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sshpiper-e2e-test
+---
+# Test Pipe CRDs for E2E testing
+apiVersion: sshpiper.com/v1beta1
+kind: Pipe
+metadata:
+  name: test-pipe-password
+  namespace: sshpiper-e2e-test
+spec:
+  from:
+    - username: k8suser
+  to:
+    host: ssh-target-service:2222
+    username: testuser
+    password_secret:
+      name: ssh-credentials
+      key: password
+---
+apiVersion: sshpiper.com/v1beta1
+kind: Pipe
+metadata:
+  name: test-pipe-publickey
+  namespace: sshpiper-e2e-test
+spec:
+  from:
+    - username: k8srbac
+  to:
+    host: ssh-target-service:2222
+    username: testuser
+    private_key_secret:
+      name: ssh-credentials
+      key: private_key
+---
+apiVersion: sshpiper.com/v1beta1
+kind: Pipe
+metadata:
+  name: test-pipe-secret-mgmt
+  namespace: sshpiper-e2e-test
+spec:
+  from:
+    - username: k8ssecret
+  to:
+    host: ssh-target-service:2222
+    username: testuser
+    password_secret:
+      name: dynamic-credentials
+      key: generated_password
+---
+# SSH Credentials Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ssh-credentials
+  namespace: sshpiper-e2e-test
+type: Opaque
+data:
+  password: dGVzdHBhc3N3b3JkMTIz  # testpassword123 base64 encoded
+  private_key: LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KYjNCbGJuTnphQzFyWlhrdGRqRUFBQUFBQkc1dmJtVUFBQUFFYm05dVpRQUFBQUFBQUFBQkFBQUFNd0FBQUF0emMyZ3RaVwpReU5UVXhPUUFBQUNEVVJreDk5dWF3MUtkZHJhWmNMcEI1a2ZNcld3dlV6MmZQT29BckxjcHo5UUFBQUPK+j0+Svo9UApnQUFBQXR6YzJndFpXUXlOVFV4T1FBQUFDRFVSa3g5OXVhdzFLZGRyYVpjTHBCNWtmTXJXd3ZVejJmUE9vQXJMY3B6OVEKQUFBRUY5eUNCMkZ6RHZIemJ3a1NSMEFSZHhRUUVlYVRuVHZYcWl3M1NXVnRnZXIwVUNJWmh1dXZuZThzNmZ5QytPUlJHVEgzMjVyRFVwMTJ0cGx3dWtIbVIKOHl0YkM5VFBaODg2Z0NzdHluUDFBQUFBRFdKdmJHbGhia0IxWW5WdWRIVT0KLS0tLS1FTkQgT1BFTlNTSCBQUklWQVRFIEtFWS0tLS0t  # test private key base64 encoded
+---
+# Dynamic credentials for secret management test
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dynamic-credentials
+  namespace: sshpiper-e2e-test
+type: Opaque
+data:
+  generated_password: WkdWdVpYSmhkR1ZrUUhCaGMzTjNiM0prTVRJeg==  # generated@password123 base64 encoded
+---
+# SSH Target Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: ssh-target-service
+  namespace: sshpiper-e2e-test
+spec:
+  selector:
+    app: ssh-target
+  ports:
+    - port: 2222
+      targetPort: 2222
+      protocol: TCP
+---
+# SSH Target Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ssh-target
+  namespace: sshpiper-e2e-test
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ssh-target
+  template:
+    metadata:
+      labels:
+        app: ssh-target
+    spec:
+      containers:
+      - name: openssh-server
+        image: linuxserver/openssh-server:latest
+        ports:
+        - containerPort: 2222
+        env:
+        - name: PUID
+          value: "1000"
+        - name: PGID  
+          value: "1000"
+        - name: TZ
+          value: "UTC"
+        - name: USER_NAME
+          value: "testuser"
+        - name: USER_PASSWORD
+          value: "testpassword123"
+        - name: PASSWORD_ACCESS
+          value: "true"
+        - name: SUDO_ACCESS
+          value: "true"
+        volumeMounts:
+        - name: shared-data
+          mountPath: /tmp
+      volumes:
+      - name: shared-data
+        emptyDir: {}
+---
+# RBAC Configuration for SSHPiper
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: sshpiper-e2e-role
+rules:
+- apiGroups: ["sshpiper.com"]
+  resources: ["pipes"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: sshpiper-e2e-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: sshpiper-e2e-role
+subjects:
+- kind: ServiceAccount
+  name: sshpiper-e2e-sa
+  namespace: sshpiper-e2e-test
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sshpiper-e2e-sa
+  namespace: sshpiper-e2e-test
+---
+# Test ConfigMap for additional configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sshpiper-e2e-config
+  namespace: sshpiper-e2e-test
+data:
+  known_hosts: |
+    ssh-target-service ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC7...
+  authorized_keys: |
+    ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINRGTH325rDUp12tplwukHmR8ytbC9TPZ886gCstynP1 test@sshpiper

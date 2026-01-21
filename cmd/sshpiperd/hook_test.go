@@ -66,7 +66,7 @@ func TestHookChain_HookWithError(t *testing.T) {
 		return ssh.PipePacketHookTransform, append(packet, '1'), nil
 	}
 
-	hookWithError := func(packet []byte) (ssh.PipePacketHookMethod, []byte, error) {
+	hookWithError := func(_ []byte) (ssh.PipePacketHookMethod, []byte, error) {
 		return ssh.PipePacketHookTransform, nil, errors.New("mock error")
 	}
 

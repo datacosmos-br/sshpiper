@@ -88,7 +88,7 @@ type ListOrString struct {
 }
 
 // UnmarshalYAML implements yaml.Unmarshaler to support both string and []string for ListOrString.
-func (l *ListOrString) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (l *ListOrString) UnmarshalYAML(unmarshal func(any) error) error {
 	// Try as []string
 	var list []string
 	if err := unmarshal(&list); err == nil {
@@ -192,7 +192,7 @@ func CheckFilePerm(filename string) error {
 // LoadYAMLConfigFiles loads YAML config files from the given globs, checks permissions (unless noCheckPerm is true),
 // and unmarshals each file into the provided slice pointer (must be a pointer to a slice of struct).
 // Returns the number of files loaded, or an error.
-func LoadYAMLConfigFiles(globs []string, noCheckPerm bool, out interface{}) (int, error) {
+func LoadYAMLConfigFiles(globs []string, noCheckPerm bool, out any) (int, error) {
 	var filesLoaded int
 	for _, fg := range globs {
 		files, err := filepath.Glob(fg)
@@ -219,7 +219,7 @@ func LoadYAMLConfigFiles(globs []string, noCheckPerm bool, out interface{}) (int
 }
 
 // unmarshalYAMLAppend unmarshals YAML into a slice pointer, appending the result. Sets filename if field exists.
-func unmarshalYAMLAppend(data []byte, out interface{}, filename string) error {
+func unmarshalYAMLAppend(data []byte, out any, filename string) error {
 	// out must be pointer to slice
 	v := reflect.ValueOf(out)
 	if v.Kind() != reflect.Ptr || v.Elem().Kind() != reflect.Slice {

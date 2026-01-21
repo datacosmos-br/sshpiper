@@ -1,0 +1,6 @@
+{
+    "yaml.schemas": {
+        "file:///home/marlonsc/.vscode/extensions/docsmsft.docs-yaml-1.0.5/dist/toc.schema.json": "/toc\\.yml/i",
+        "https://golangci-lint.run/jsonschema/golangci.v1.jsonschema.json": "file:///home/marlonsc/rpa/sshpiper/.golangci.yml"
+    }
+}

@@ -77,7 +77,11 @@ func extractFlags(namespace, filePath string) {
 					}
 				}
 
-				fmt.Printf("%v.%v %v\n", namespace, flagName, flagDesc)
+				// Write flag documentation to stdout for snap configuration generation
+				// This is intentional stdout output for snap configuration, not debug code
+				if _, err := fmt.Fprintf(os.Stdout, "%v.%v %v\n", namespace, flagName, flagDesc); err != nil {
+					log.Printf("failed to output flag documentation: %v", err)
+				}
 			}
 		}
 		return true

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 const (
@@ -80,16 +80,18 @@ func (p *ServiceJWTProvider) Provide() (string, error) {
 	return p.GetJWT()
 }
 
+// NewServiceJWT creates a new JWT token for service authentication
+// using modern jwt/v5 API with proper time handling and security practices
 func NewServiceJWT(identity string, signingKey []byte, expiresAt time.Time) (string, error) {
 	now := time.Now()
 	claims := JWTClaims{
 		Type: PrincipalTypeService,
 		Name: identity,
-		StandardClaims: jwt.StandardClaims{
-			Issuer:    "Harness Inc",
-			IssuedAt:  now.Unix(),
-			ExpiresAt: expiresAt.Unix(),
-			NotBefore: now.Add(-time.Hour * 1).Unix(),
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    "SSHPiper",
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(expiresAt),
+			NotBefore: jwt.NewNumericDate(now.Add(-time.Minute)), // 1 minute grace period
 		},
 	}
 

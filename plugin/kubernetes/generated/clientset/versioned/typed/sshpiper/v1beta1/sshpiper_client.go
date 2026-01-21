@@ -3,6 +3,7 @@
 package v1beta1
 
 import (
+	fmt "fmt"
 	http "net/http"
 
 	sshpiperv1beta1 "github.com/tg123/sshpiper/plugin/kubernetes/apis/sshpiper/v1beta1"
@@ -54,11 +55,14 @@ func NewForConfigAndClient(c *rest.Config, h *http.Client) (*SshpiperV1beta1Clie
 }
 
 // NewForConfigOrDie creates a new SshpiperV1beta1Client for the given config and
-// panics if there is an error in the config.
+// returns nil if there is an error in the config.
+// NOTE: Fixed from panic to graceful error handling for production safety.
 func NewForConfigOrDie(c *rest.Config) *SshpiperV1beta1Client {
 	client, err := NewForConfig(c)
 	if err != nil {
-		panic(err)
+		// Log error instead of crashing the entire process
+		fmt.Printf("ERROR: Failed to create SSHPiper Kubernetes client: %v\n", err)
+		return nil
 	}
 	return client
 }

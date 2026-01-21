@@ -1,6 +1,6 @@
 package main
 
-import "github.com/golang-jwt/jwt"
+import "github.com/golang-jwt/jwt/v5"
 
 type userKeyAuthRequest struct {
 	AccountId    string       `json:"accountIdentifier"`
@@ -30,8 +30,10 @@ type UserClusterResponse struct {
 	ClusterName string `json:"clusterName"`
 }
 
+// JWTClaims represents the claims structure for JWT tokens
+// using the modern jwt/v5 RegisteredClaims
 type JWTClaims struct {
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 
 	// Common claims
 	Type PrincipalType `json:"type,omitempty"`

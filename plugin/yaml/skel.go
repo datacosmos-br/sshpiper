@@ -36,7 +36,7 @@ type skelpipeToPasswordWrapper struct {
 	skelpipeToWrapper
 }
 
-func (s *skelpipeToPasswordWrapper) User(conn libplugin.ConnMetadata) string {
+func (s *skelpipeToPasswordWrapper) User(_ libplugin.ConnMetadata) string {
 	return s.username
 }
 
@@ -44,7 +44,7 @@ type skelpipeToPrivateKeyWrapper struct {
 	skelpipeToWrapper
 }
 
-func (s *skelpipeToPrivateKeyWrapper) User(conn libplugin.ConnMetadata) string {
+func (s *skelpipeToPrivateKeyWrapper) User(_ libplugin.ConnMetadata) string {
 	return s.username
 }
 
@@ -113,11 +113,11 @@ func (s *skelpipeWrapper) From() []skel.SkelPipeFrom {
 	return froms
 }
 
-func (s *skelpipeToWrapper) Host(conn libplugin.ConnMetadata) string {
+func (s *skelpipeToWrapper) Host(_ libplugin.ConnMetadata) string {
 	return s.to.Host
 }
 
-func (s *skelpipeToWrapper) IgnoreHostKey(conn libplugin.ConnMetadata) bool {
+func (s *skelpipeToWrapper) IgnoreHostKey(_ libplugin.ConnMetadata) bool {
 	return libplugin.StandardIgnoreHostKey(s.to.IgnoreHostkey, s.to.KnownHostsData.Str, s.to.KnownHosts.Str)
 }
 

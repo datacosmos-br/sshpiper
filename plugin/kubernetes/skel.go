@@ -96,19 +96,19 @@ type skelpipeToWrapper struct {
 	username string
 }
 
-func (s *skelpipeToWrapper) User(conn libplugin.ConnMetadata) string {
+func (s *skelpipeToWrapper) User(_ libplugin.ConnMetadata) string {
 	return s.username
 }
 
-func (s *skelpipeToWrapper) Host(conn libplugin.ConnMetadata) string {
+func (s *skelpipeToWrapper) Host(_ libplugin.ConnMetadata) string {
 	return s.pipe.Spec.To.Host
 }
 
-func (s *skelpipeToWrapper) IgnoreHostKey(conn libplugin.ConnMetadata) bool {
+func (s *skelpipeToWrapper) IgnoreHostKey(_ libplugin.ConnMetadata) bool {
 	return s.pipe.Spec.To.IgnoreHostkey
 }
 
-func (s *skelpipeToWrapper) KnownHosts(conn libplugin.ConnMetadata) ([]byte, error) {
+func (s *skelpipeToWrapper) KnownHosts(_ libplugin.ConnMetadata) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(s.pipe.Spec.To.KnownHostsData)
 }
 
@@ -317,7 +317,6 @@ func (s *skelpipeWrapper) From() []skel.SkelPipeFrom {
 	}
 	return nil
 }
-
 
 func (p *plugin) listPipe(_ libplugin.ConnMetadata) ([]skel.SkelPipe, error) {
 	kpipes, err := p.list()

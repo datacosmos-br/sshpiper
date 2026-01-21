@@ -1,3 +1,4 @@
+// Package main implements ASCII cast recording functionality for sshpiperd.
 package main
 
 import (
@@ -8,6 +9,8 @@ import (
 	"os"
 	"path"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -18,7 +21,10 @@ const (
 func jsonEscape(i string) string {
 	b, err := json.Marshal(i)
 	if err != nil {
-		panic(err)
+		// Handle JSON marshal errors gracefully
+		log.Errorf("failed to marshal string for JSON escape: %v", err)
+		// Return escaped version of original string
+		return fmt.Sprintf("%q", i)[1 : len(fmt.Sprintf("%q", i))-1]
 	}
 	s := string(b)
 	return s[1 : len(s)-1]
@@ -93,10 +99,16 @@ func (l *asciicastLogger) downhook(msg []byte) error {
 
 		switch reqType {
 		case "pty-req":
-			_, _ = buf.ReadByte()
+			if _, err := buf.ReadByte(); err != nil {
+				return err
+			}
 			term := readString(buf)
-			_ = binary.Read(buf, binary.BigEndian, &l.initWidth)
-			_ = binary.Read(buf, binary.BigEndian, &l.initHeight)
+			if err := binary.Read(buf, binary.BigEndian, &l.initWidth); err != nil {
+				return err
+			}
+			if err := binary.Read(buf, binary.BigEndian, &l.initHeight); err != nil {
+				return err
+			}
 			l.envs["TERM"] = term
 		case "env":
 			_, _ = buf.ReadByte()

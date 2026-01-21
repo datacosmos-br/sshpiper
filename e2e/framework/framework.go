@@ -21,11 +21,11 @@ import (
 
 // TestFramework provides utilities for E2E testing
 type TestFramework struct {
-	t           *testing.T
-	tempDir     string
-	sshPiperCmd *exec.Cmd
+	t            *testing.T
+	tempDir      string
+	sshPiperCmd  *exec.Cmd
 	sshPiperPort int
-	plugins     map[string]*PluginInstance
+	plugins      map[string]*PluginInstance
 }
 
 // PluginInstance represents a running plugin
@@ -45,10 +45,10 @@ func NewTestFramework(t *testing.T) *TestFramework {
 	}
 
 	return &TestFramework{
-		t:           t,
-		tempDir:     tempDir,
+		t:            t,
+		tempDir:      tempDir,
 		sshPiperPort: getFreePort(),
-		plugins:     make(map[string]*PluginInstance),
+		plugins:      make(map[string]*PluginInstance),
 	}
 }
 
@@ -274,14 +274,14 @@ func (f *TestFramework) GenerateCAAndUserCert(t *testing.T, username string) (*C
 	if err != nil {
 		t.Fatalf("Failed to create user signer: %v", err)
 	}
-	
+
 	certSigner, err := ssh.NewCertSigner(cert, userSigner)
 	if err != nil {
 		t.Fatalf("Failed to create cert signer: %v", err)
 	}
 
 	caPublicKey := ssh.MarshalAuthorizedKey(caSigner.PublicKey())
-	
+
 	return &CAKey{
 		PrivateKey: pem.EncodeToMemory(&pem.Block{
 			Type:  "RSA PRIVATE KEY",

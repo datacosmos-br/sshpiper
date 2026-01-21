@@ -15,7 +15,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-var mainver string = "(devel)"
+var mainver = "(devel)"
 
 func version() string {
 
@@ -317,7 +317,7 @@ func main() {
 			for len(remain) > 0 {
 				args, remain = splitByDash(remain)
 
-				if len(args) <= 0 {
+				if len(args) == 0 {
 					continue
 				}
 
