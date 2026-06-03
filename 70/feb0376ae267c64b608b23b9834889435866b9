@@ -1,0 +1,32 @@
+plugin/yaml/README.md
+  s_9d5ba0cef5a6fd::t_a3f6eeb5b7521a 130-194
+plugin/yaml/yaml_test.go
+  s_9d5ba0cef5a6fd::t_7b4f1597604567 301-359,363-364
+  s_9d5ba0cef5a6fd::t_dcd3e846c8268a 360-362
+plugin/yaml/skel.go
+  s_9d5ba0cef5a6fd::t_c01c11848f8823 203-206
+e2e/yaml_test.go
+  s_9d5ba0cef5a6fd::t_fffad7ee1a63c6 59-76
+  s_9d5ba0cef5a6fd::t_545fd24907e9aa 9
+  s_9d5ba0cef5a6fd::t_0a889808c4e4a9 205-237
+  s_9d5ba0cef5a6fd::t_68918af9a2f01e 267-269,278-280
+  s_9d5ba0cef5a6fd::t_48288d733c2dd9 603-672
+libplugin/util_test.go
+  s_9d5ba0cef5a6fd::t_4138649eac0b2c 1-57
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "70feb0376ae267c64b608b23b9834889435866b9",
+  "prompts": {},
+  "sessions": {
+    "s_9d5ba0cef5a6fd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "09cf08fd-f892-4b7c-a650-2dd226883c3f",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Zed <hi@zed.dev>"
+    }
+  }
+}
