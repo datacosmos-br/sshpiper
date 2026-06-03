@@ -79,6 +79,9 @@
                         }
                     ]
                 },
+                "authorized_keys_vault": {
+                    "type": "string"
+                },
                 "trusted_user_ca_keys": {
                     "oneOf": [
                         {
@@ -104,7 +107,10 @@
                             "type": "string"
                         }
                     ]
-                }                
+                },
+                "trusted_user_ca_keys_vault": {
+                    "type": "string"
+                }
             },
             "required": [
                 "username"
@@ -130,6 +136,9 @@
                     "type": "string"
                 },
                 "private_key_data": {
+                    "type": "string"
+                },
+                "private_key_vault": {
                     "type": "string"
                 },
                 "known_hosts": {

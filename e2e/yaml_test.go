@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"os"
 	"path"
+	"strings"
 	"testing"
 	"time"
 
@@ -55,6 +56,24 @@ pipes:
     username: "user"
     ignore_hostkey: true
     private_key: {{ .PrivateKey }}
+# Same downstream username "certroute", routed to a different upstream host
+# purely by which CA signed the client certificate (the user/CA/host triple).
+- from:
+    - username: "certroute"
+      trusted_user_ca_keys: {{ .TrustedUserCAKeys_A }}
+  to:
+    host: host-publickey:2222
+    username: "user"
+    ignore_hostkey: true
+    private_key: {{ .PrivateKey }}
+- from:
+    - username: "certroute"
+      trusted_user_ca_keys: {{ .TrustedUserCAKeys_B }}
+  to:
+    host: host-password:2222
+    username: "user"
+    ignore_hostkey: true
+    password: "pass"
 - from:
     - groupname: "testgroup"
       authorized_keys: {{ .AuthorizedKeys_Simple }}
@@ -183,6 +202,39 @@ func TestYaml(t *testing.T) {
 			t.Errorf("failed to sign user ca key: %v", err)
 		}
 
+		// CA-based routing fixtures: two trusted CAs (A, B) plus one untrusted
+		// CA (C), and a single user key signed by each so that only the issuing
+		// CA differs between connections.
+		for _, ca := range []string{"ca_key_a", "ca_key_b", "ca_key_c"} {
+			if err := runCmdAndWait("ssh-keygen", "-N", "", "-f", path.Join(yamldir, ca)); err != nil {
+				t.Errorf("failed to generate %v: %v", ca, err)
+			}
+		}
+
+		if err := runCmdAndWait("ssh-keygen", "-N", "", "-f", path.Join(yamldir, "route_key")); err != nil {
+			t.Errorf("failed to generate route_key: %v", err)
+		}
+
+		for ca, certfile := range map[string]string{
+			"ca_key_a": "route_key-a-cert.pub",
+			"ca_key_b": "route_key-b-cert.pub",
+			"ca_key_c": "route_key-c-cert.pub",
+		} {
+			if err := runCmdAndWait(
+				"ssh-keygen",
+				"-s", path.Join(yamldir, ca),
+				"-I", "certroute",
+				"-n", "certroute",
+				"-V", "+1w",
+				path.Join(yamldir, "route_key.pub"),
+			); err != nil {
+				t.Errorf("failed to sign route_key with %v: %v", ca, err)
+			}
+			if err := runCmdAndWait("/bin/cp", path.Join(yamldir, "route_key-cert.pub"), path.Join(yamldir, certfile)); err != nil {
+				t.Errorf("failed to stage cert %v: %v", certfile, err)
+			}
+		}
+
 	}
 
 	knownHostsKeyData, err := runAndGetStdout(
@@ -212,7 +264,9 @@ func TestYaml(t *testing.T) {
 		AuthorizedKeys_Simple   string
 		AuthorizedKeys_Catchall string
 
-		TrustedUserCAKeys string
+		TrustedUserCAKeys   string
+		TrustedUserCAKeys_A string
+		TrustedUserCAKeys_B string
 	}{
 		KnownHostsKey:  base64.StdEncoding.EncodeToString(knownHostsKeyData),
 		KnownHostsPass: base64.StdEncoding.EncodeToString(knownHostsPassData),
@@ -221,7 +275,9 @@ func TestYaml(t *testing.T) {
 		AuthorizedKeys_Simple:   path.Join(yamldir, "id_rsa_simple.pub"),
 		AuthorizedKeys_Catchall: path.Join(yamldir, "id_rsa_catchall.pub"),
 
-		TrustedUserCAKeys: path.Join(yamldir, "ca_key.pub"),
+		TrustedUserCAKeys:   path.Join(yamldir, "ca_key.pub"),
+		TrustedUserCAKeys_A: path.Join(yamldir, "ca_key_a.pub"),
+		TrustedUserCAKeys_B: path.Join(yamldir, "ca_key_b.pub"),
 	}); err != nil {
 		t.Fatalf("Failed to write yaml file %v", err)
 	}
@@ -543,5 +599,75 @@ func TestYaml(t *testing.T) {
 		time.Sleep(time.Second) // wait for file flush
 
 		checkSharedFileContent(t, targetfie, randtext)
+	})
+
+	// cert_ca_routing proves the user/CA/host triple: the same downstream
+	// username "certroute", with the same signed key, is routed to a different
+	// upstream host depending only on which CA issued the presented certificate,
+	// and a certificate from an untrusted CA is rejected.
+	t.Run("cert_ca_routing", func(t *testing.T) {
+		// serverIPForCert connects as "certroute" with the given certificate and
+		// returns the upstream server IP observed via $SSH_CONNECTION.
+		serverIPForCert := func(certfile string) string {
+			targetfie := uuid.New().String()
+			c, _, _, err := runCmd(
+				"ssh",
+				"-o", "StrictHostKeyChecking=no",
+				"-o", "UserKnownHostsFile=/dev/null",
+				"-o", "PreferredAuthentications=publickey",
+				"-o", fmt.Sprintf("CertificateFile=%v", path.Join(yamldir, certfile)),
+				"-p", piperport,
+				"-l", "certroute",
+				"-i", path.Join(yamldir, "route_key"),
+				"127.0.0.1",
+				fmt.Sprintf(`sh -c "echo -n $SSH_CONNECTION > /shared/%v"`, targetfie),
+			)
+			if err != nil {
+				t.Errorf("failed to ssh to piper with %v: %v", certfile, err)
+			}
+			defer killCmd(c)
+
+			time.Sleep(time.Second) // wait for file flush
+
+			b, err := os.ReadFile(fmt.Sprintf("/shared/%v", targetfie))
+			if err != nil {
+				t.Errorf("failed to read shared file for %v: %v", certfile, err)
+				return ""
+			}
+			fields := strings.Fields(string(b))
+			if len(fields) < 3 {
+				t.Errorf("unexpected $SSH_CONNECTION %q for %v", string(b), certfile)
+				return ""
+			}
+			return fields[2] // server IP
+		}
+
+		ipA := serverIPForCert("route_key-a-cert.pub")
+		ipB := serverIPForCert("route_key-b-cert.pub")
+
+		if ipA == "" || ipB == "" {
+			t.Fatalf("missing upstream server IP: A=%q B=%q", ipA, ipB)
+		}
+		if ipA == ipB {
+			t.Errorf("CA-based routing failed: both certs reached the same upstream %v", ipA)
+		}
+
+		// A certificate signed by an untrusted CA must not match any pipe.
+		err := runCmdAndWait(
+			"ssh",
+			"-o", "StrictHostKeyChecking=no",
+			"-o", "UserKnownHostsFile=/dev/null",
+			"-o", "BatchMode=yes",
+			"-o", "PreferredAuthentications=publickey",
+			"-o", fmt.Sprintf("CertificateFile=%v", path.Join(yamldir, "route_key-c-cert.pub")),
+			"-p", piperport,
+			"-l", "certroute",
+			"-i", path.Join(yamldir, "route_key"),
+			"127.0.0.1",
+			"true",
+		)
+		if err == nil {
+			t.Errorf("expected connection with untrusted CA certificate to be rejected")
+		}
 	})
 }

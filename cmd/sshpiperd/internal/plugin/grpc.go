@@ -435,6 +435,14 @@ func (g *GrpcPlugin) PasswordCallback(conn ssh.ConnMetadata, password []byte, ch
 
 func (g *GrpcPlugin) PublicKeyCallback(conn ssh.ConnMetadata, key ssh.PublicKey, challengeCtx ssh.ChallengeContext) (*ssh.Upstream, error) {
 	meta := toMeta(challengeCtx, conn)
+	// Publish the issuing CA fingerprint so plugins can route by which CA signed
+	// the client certificate without re-parsing the public key blob.
+	if cert, ok := key.(*ssh.Certificate); ok {
+		if meta.Metadata == nil {
+			meta.Metadata = map[string]string{}
+		}
+		meta.Metadata[libplugin.MetadataKeyCAFingerprint] = ssh.FingerprintSHA256(cert.SignatureKey)
+	}
 	reply, err := g.client.PublicKeyAuth(context.Background(), &libplugin.PublicKeyAuthRequest{
 		Meta:      meta,
 		PublicKey: key.Marshal(),

@@ -9,33 +9,38 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/tg123/sshpiper/libplugin"
 	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v3"
 )
 
 type yamlPipeFrom struct {
-	Username              string       `yaml:"username,omitempty"`
-	Groupname             string       `yaml:"groupname,omitempty"`
-	UsernameRegexMatch    bool         `yaml:"username_regex_match,omitempty"`
-	AuthorizedKeys        listOrString `yaml:"authorized_keys,omitempty"`
-	AuthorizedKeysData    listOrString `yaml:"authorized_keys_data,omitempty"`
-	TrustedUserCAKeys     listOrString `yaml:"trusted_user_ca_keys,omitempty"`
-	TrustedUserCAKeysData listOrString `yaml:"trusted_user_ca_keys_data,omitempty"`
+	Username               string       `yaml:"username,omitempty"`
+	Groupname              string       `yaml:"groupname,omitempty"`
+	UsernameRegexMatch     bool         `yaml:"username_regex_match,omitempty"`
+	AuthorizedKeys         listOrString `yaml:"authorized_keys,omitempty"`
+	AuthorizedKeysData     listOrString `yaml:"authorized_keys_data,omitempty"`
+	AuthorizedKeysVault    string       `yaml:"authorized_keys_vault,omitempty"`
+	TrustedUserCAKeys      listOrString `yaml:"trusted_user_ca_keys,omitempty"`
+	TrustedUserCAKeysData  listOrString `yaml:"trusted_user_ca_keys_data,omitempty"`
+	TrustedUserCAKeysVault string       `yaml:"trusted_user_ca_keys_vault,omitempty"`
 }
 
 func (f yamlPipeFrom) SupportPublicKey() bool {
-	return f.AuthorizedKeys.Any() || f.AuthorizedKeysData.Any() || f.TrustedUserCAKeys.Any() || f.TrustedUserCAKeysData.Any()
+	return f.AuthorizedKeys.Any() || f.AuthorizedKeysData.Any() || f.AuthorizedKeysVault != "" ||
+		f.TrustedUserCAKeys.Any() || f.TrustedUserCAKeysData.Any() || f.TrustedUserCAKeysVault != ""
 }
 
 type yamlPipeTo struct {
-	Username       string       `yaml:"username,omitempty"`
-	Host           string       `yaml:"host"`
-	Password       string       `yaml:"password,omitempty"`
-	PrivateKey     string       `yaml:"private_key,omitempty"`
-	PrivateKeyData string       `yaml:"private_key_data,omitempty"`
-	KnownHosts     listOrString `yaml:"known_hosts,omitempty"`
-	KnownHostsData listOrString `yaml:"known_hosts_data,omitempty"`
-	IgnoreHostkey  bool         `yaml:"ignore_hostkey,omitempty"`
+	Username        string       `yaml:"username,omitempty"`
+	Host            string       `yaml:"host"`
+	Password        string       `yaml:"password,omitempty"`
+	PrivateKey      string       `yaml:"private_key,omitempty"`
+	PrivateKeyData  string       `yaml:"private_key_data,omitempty"`
+	PrivateKeyVault string       `yaml:"private_key_vault,omitempty"`
+	KnownHosts      listOrString `yaml:"known_hosts,omitempty"`
+	KnownHostsData  listOrString `yaml:"known_hosts_data,omitempty"`
+	IgnoreHostkey   bool         `yaml:"ignore_hostkey,omitempty"`
 }
 
 type listOrString struct {
@@ -52,6 +57,13 @@ func (l *listOrString) Combine() []string {
 		return append(l.List, l.Str)
 	}
 	return l.List
+}
+
+// lib adapts the plugin-local listOrString to the shared libplugin.ListOrString,
+// so the multi-source (file/base64/Vault) loaders in libplugin can be reused
+// without altering the upstream yaml config types.
+func (l listOrString) lib() libplugin.ListOrString {
+	return libplugin.ListOrString{List: l.List, Str: l.Str}
 }
 
 func (l *listOrString) UnmarshalYAML(value *yaml.Node) error {
