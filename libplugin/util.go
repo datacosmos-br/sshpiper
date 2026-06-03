@@ -11,7 +11,30 @@ import (
 	"strconv"
 
 	"github.com/sirupsen/logrus"
+	"golang.org/x/crypto/ssh"
 )
+
+// MetadataKeyCAFingerprint is the ConnMeta.Metadata key under which sshpiperd
+// publishes the SHA256 fingerprint of the CA that issued the client's SSH
+// certificate. Plugins can route on this value without parsing the public key
+// blob themselves. The key is absent when the offered key is not a certificate.
+const MetadataKeyCAFingerprint = "ca-fingerprint"
+
+// CertCAFingerprint parses a marshaled SSH public key and, when it is a
+// certificate, returns the SHA256 fingerprint of the issuing CA
+// (Certificate.SignatureKey). It returns an empty string (no error) when the
+// key is a plain public key rather than a certificate.
+func CertCAFingerprint(marshaledPublicKey []byte) (string, error) {
+	pub, err := ssh.ParsePublicKey(marshaledPublicKey)
+	if err != nil {
+		return "", err
+	}
+	cert, ok := pub.(*ssh.Certificate)
+	if !ok {
+		return "", nil
+	}
+	return ssh.FingerprintSHA256(cert.SignatureKey), nil
+}
 
 func AuthMethodTypeToName(a AuthMethod) string {
 	switch a {
