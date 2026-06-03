@@ -1,0 +1,177 @@
+cmd/sshpiperd-webadmin/internal/httpapi/web/index.html
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-210
+plugin/docker/docker.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 9-10,12-13,21,29-36,40,45-49,54-55,62-63,65-73,80-105,113-115,124,133,140-141,157
+cmd/sshpiperd/admin_tls_test.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-109
+e2e/k8sworkload.yaml
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 111-127,313-328
+cmd/sshpiperd-admin/ssh_server_test.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-270
+cmd/sshpiperd-admin/ssh_server.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-706
+cmd/sshpiperd-webadmin/internal/httpapi/httpapi_test.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-227
+.github/copilot-instructions.md
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-177
+cmd/sshpiperd/daemon_test.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-773
+plugin/kubernetes/kubernetes.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 4-5,14,23-29,75-79,88-94
+libadmin/aggregator_test.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-168
+e2e/docker_test.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 31,45,57,77,93,103-148
+cmd/sshpiperd-webadmin/internal/httpapi/web/package.json
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-18
+examples/lua-publickey-git-routing/lua/routing.lua
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-35
+cmd/sshpiperd-webadmin/internal/httpapi/web/.gitignore
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-3
+libadmin/admin.proto
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-109
+plugin/docker/README.md
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 27,41-43
+libadmin/doc.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-6
+cmd/sshpiperd/cmd_dummy.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 10
+plugin/kubernetes/kubernetes_test.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 7,233-367
+cmd/sshpiperd/main.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 4-5,7,17,20-21,24-50,147-156,265-306,335,342,449-492
+examples/lua-publickey-git-routing/README.md
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-25
+.github/workflows/release.yaml
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 51,54,57,63,69,72,84
+libadmin/client.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-169
+cmd/sshpiperd-webadmin/internal/httpapi/web/src/app.js
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-686
+cmd/sshpiperd-webadmin/internal/httpapi/web/build.mjs
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-36
+cmd/sshpiperd/internal/admin/server.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-168
+examples/lua-publickey-git-routing/docker-compose.yml
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-86
+cmd/sshpiperd/internal/admin/registry_test.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-90
+examples/lua-publickey-git-routing/git-a/authorized_keys
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1
+.gitignore
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 23-27
+.github/workflows/e2e.yml
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 24,48,51-63
+examples/username-routing/docker-compose.yml
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-21
+examples/honeypot-on-failure/lua/routing.lua
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-38
+.goreleaser.yaml
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 9-12,26-27,29,38-41,59-62,77-80,95-98,113-116,131-134,149-152,167-170,185-244,273-275,289-293,308,319,330
+cmd/sshpiperd-webadmin/internal/aggregator/aggregator.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-81
+.github/workflows/test.yml
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 22,25,45,48,59
+examples/honeypot-on-failure/README.md
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-44
+examples/lua-publickey-git-routing/git-b/authorized_keys
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1
+e2e/docker-compose.yml
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 51-64,139
+examples/lua-publickey-git-routing/keys/.gitkeep
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1
+cmd/sshpiperd/internal/admin/broadcaster_test.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-158
+e2e/kubetools/Dockerfile
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1,6,16-20,22-23
+libadmin/aggregator.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-297
+plugin/lua/lua_test.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 6,12-13,295-479,570
+examples/README.md
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-8
+e2e/admin_test.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-292
+cmd/sshpiperd-webadmin/internal/httpapi/web/package-lock.json
+  ai_agent 1-500
+e2e/fixed_test.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 4-5,7,14,119-194
+plugin/kubernetes/README.md
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 36-52,127-132,155
+plugin/lua/lua.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 7,25-32,63-90,93-96,99-102,104-106,113-118,132-135,310-403,677-875
+cmd/sshpiperd/internal/admin/registry.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-133
+plugin/docker/dockersshd_bridge.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-245
+cmd/sshpiperd/internal/admin/server_test.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-115
+cmd/sshpiperd-webadmin/internal/httpapi/web/README.md
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-54
+libplugin/skel/skel_test.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-677
+plugin/lua/README.md
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 13,111-148
+plugin/metrics/main.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-2
+cmd/sshpiperd/daemon.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 17,33-37,56-62,64-67,69-71,73-80,82-114,116-141,155-175,178-197,199-202,205-210,212-223,226-228,231-232,234,237-245,247,250-251,253-280,435-454
+e2e/kubernetes_test.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 5,8,202-265
+plugin/docker/dockersshd_bridge_test.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-187
+plugin/kubernetes/skel.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 43-48,88-90,95-97,129-144,146,148,153,217-224
+README.md
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 78-119,132
+cmd/sshpiperd-admin/main.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-509
+examples/honeypot-on-failure/docker-compose.yml
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-31
+examples/webadmin/docker-compose.yml
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-67
+e2e/lua_test.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 16-19,431-713
+examples/webadmin/README.md
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-71
+plugin/kubernetes/kubectl_exec_bridge.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-280
+plugin/yaml/yaml_test.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 6-9,12,63-299
+go.sum
+  ai_agent 3-6,30-37,42-43,57-58,68-69,75-76,110-113,120-125,136-137,140-141,143-144,163-164,178-179,192-193,196-207,216-223,226-235,240-247,258-267,270-279,284-285
+cmd/sshpiperd-webadmin/internal/httpapi/httpapi.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-339
+Dockerfile
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-9,18,27-36
+libadmin/admin_grpc.pb.go
+  ai_agent 1-263
+cmd/sshpiperd/internal/admin/broadcaster.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-141
+cmd/sshpiperd/internal/admin/streamhook.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-208
+cmd/sshpiperd-webadmin/internal/httpapi/web/src/style.css
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-471
+examples/username-routing/README.md
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-17
+libadmin/admin.pb.go
+  ai_agent 1-821
+cmd/sshpiperd-webadmin/main.go
+  s_9d5ba0cef5a6fd::t_5ffafcaeb09f1f 1-178
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "e0767f587f0f151f26b16ea5286ee3ebd5cff673",
+  "prompts": {},
+  "sessions": {
+    "s_9d5ba0cef5a6fd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "09cf08fd-f892-4b7c-a650-2dd226883c3f",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Zed <hi@zed.dev>"
+    }
+  }
+}
