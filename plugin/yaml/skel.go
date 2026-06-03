@@ -5,6 +5,7 @@ package main
 import (
 	"errors"
 	"os/user"
+	"path/filepath"
 	"regexp"
 	"slices"
 
@@ -161,22 +162,36 @@ func (s *skelpipePasswordWrapper) TestPassword(conn libplugin.ConnMetadata, pass
 }
 
 func (s *skelpipePublicKeyWrapper) AuthorizedKeys(conn libplugin.ConnMetadata) ([]byte, error) {
-	return s.config.loadFileOrDecodeMany(s.from.AuthorizedKeys, s.from.AuthorizedKeysData, map[string]string{
-		"DOWNSTREAM_USER": conn.User(),
-	})
+	return libplugin.LoadAuthorizedKeysMulti(
+		s.from.AuthorizedKeys.lib(),
+		s.from.AuthorizedKeysData.lib(),
+		s.from.AuthorizedKeysVault,
+		map[string]string{"DOWNSTREAM_USER": conn.User()},
+		filepath.Dir(s.config.filename),
+	)
 }
 
 func (s *skelpipePublicKeyWrapper) TrustedUserCAKeys(conn libplugin.ConnMetadata) ([]byte, error) {
-	return s.config.loadFileOrDecodeMany(s.from.TrustedUserCAKeys, s.from.TrustedUserCAKeysData, map[string]string{
-		"DOWNSTREAM_USER": conn.User(),
-	})
+	return libplugin.LoadTrustedUserCAKeysMulti(
+		s.from.TrustedUserCAKeys.lib(),
+		s.from.TrustedUserCAKeysData.lib(),
+		s.from.TrustedUserCAKeysVault,
+		map[string]string{"DOWNSTREAM_USER": conn.User()},
+		filepath.Dir(s.config.filename),
+	)
 }
 
 func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([]byte, []byte, error) {
-	p, err := s.config.loadFileOrDecode(s.to.PrivateKey, s.to.PrivateKeyData, map[string]string{
-		"DOWNSTREAM_USER": conn.User(),
-		"UPSTREAM_USER":   s.username,
-	})
+	p, err := libplugin.LoadPrivateKeyFromVaultOrFile(
+		s.to.PrivateKeyVault,
+		s.to.PrivateKey,
+		s.to.PrivateKeyData,
+		map[string]string{
+			"DOWNSTREAM_USER": conn.User(),
+			"UPSTREAM_USER":   s.username,
+		},
+		filepath.Dir(s.config.filename),
+	)
 	if err != nil {
 		return nil, nil, err
 	}
