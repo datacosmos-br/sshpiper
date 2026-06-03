@@ -200,7 +200,10 @@ func (s *skelpipeToPrivateKeyWrapper) PrivateKey(conn libplugin.ConnMetadata) ([
 }
 
 func (s *skelpipeToPasswordWrapper) OverridePassword(conn libplugin.ConnMetadata) ([]byte, error) {
-	return nil, nil
+	if s.to.Password != "" {
+		return []byte(s.to.Password), nil
+	}
+	return nil, nil // no override: forward the downstream-provided password
 }
 
 func (p *plugin) listPipe(_ libplugin.ConnMetadata) ([]skel.SkelPipe, error) {

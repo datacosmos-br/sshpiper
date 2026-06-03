@@ -298,3 +298,67 @@ func (f fakeConn) UniqueID() string {
 func (f fakeConn) GetMeta(key string) string {
 	return ""
 }
+
+// TestYamlCARoutingDecode verifies that two pipes sharing the same downstream
+// username but distinct trusted_user_ca_keys decode independently, and that the
+// new *_vault fields unmarshal. This underpins routing by which CA issued the
+// client certificate (the user/CA/host triple).
+func TestYamlCARoutingDecode(t *testing.T) {
+	const cfg = `
+version: "1.0"
+pipes:
+- from:
+    - username: "certroute"
+      trusted_user_ca_keys: /tmp/ca_a.pub
+      trusted_user_ca_keys_vault: secret/data/ssh-ca-a
+  to:
+    host: host-a:2222
+    username: "user"
+    ignore_hostkey: true
+    private_key_vault: secret/data/ssh-key
+- from:
+    - username: "certroute"
+      trusted_user_ca_keys:
+        - /tmp/ca_b1.pub
+        - /tmp/ca_b2.pub
+      authorized_keys_vault: secret/data/authkeys
+  to:
+    host: host-b:2222
+    username: "user"
+    password: "pass"
+`
+	var config piperConfig
+	if err := yaml.Unmarshal([]byte(cfg), &config); err != nil {
+		t.Fatalf("Failed to unmarshal yaml: %v", err)
+	}
+
+	if len(config.Pipes) != 2 {
+		t.Fatalf("expected 2 pipes, got %d", len(config.Pipes))
+	}
+
+	a, b := config.Pipes[0].From[0], config.Pipes[1].From[0]
+	if a.Username != b.Username {
+		t.Fatalf("expected both pipes to share username, got %q and %q", a.Username, b.Username)
+	}
+	if slices.Equal(a.TrustedUserCAKeys.Combine(), b.TrustedUserCAKeys.Combine()) {
+		t.Errorf("expected distinct trusted_user_ca_keys per pipe")
+	}
+	if a.TrustedUserCAKeysVault != "secret/data/ssh-ca-a" {
+		t.Errorf("trusted_user_ca_keys_vault not decoded: %q", a.TrustedUserCAKeysVault)
+	}
+	if b.AuthorizedKeysVault != "secret/data/authkeys" {
+		t.Errorf("authorized_keys_vault not decoded: %q", b.AuthorizedKeysVault)
+	}
+	if config.Pipes[0].To.PrivateKeyVault != "secret/data/ssh-key" {
+		t.Errorf("private_key_vault not decoded: %q", config.Pipes[0].To.PrivateKeyVault)
+	}
+	if config.Pipes[1].To.Password != "pass" {
+		t.Errorf("to.password not decoded: %q", config.Pipes[1].To.Password)
+	}
+
+	// The .lib() adapter must preserve values for the libplugin loaders.
+	libCA := b.TrustedUserCAKeys.lib()
+	if !slices.Equal(libCA.Combine(), []string{"/tmp/ca_b1.pub", "/tmp/ca_b2.pub"}) {
+		t.Errorf("lib() adapter lost values: %v", libCA.Combine())
+	}
+}

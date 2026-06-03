@@ -127,4 +127,68 @@ pipes:
 ```
 
 **TIP:** Two full Docker Compose examples demonstrating this feature can be found [here](https://github.com/tg123/sshpiper/issues/559#issuecomment-2798373009).
-         
+
+### Routing by the issuing CA (user/CA/host)
+
+A client certificate is only accepted by a pipe whose `from.trusted_user_ca_keys`
+contains the CA that signed it. Pipes are matched top-to-bottom, so the **same**
+downstream username can be routed to **different** upstream hosts depending purely
+on **which CA** issued the presented certificate — the `(username, issuing-CA, host)`
+triple. Give each CA its own pipe with the same `from.username` and a different `to.host`:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/tg123/sshpiper/master/plugin/yaml/schema.json
+version: "1.0"
+pipes:
+- from:
+    - username: "alice"
+      trusted_user_ca_keys: /path/to/ca-team-a.pub
+  to:
+    host: host-a.example.com:22
+    username: "world"
+    ignore_hostkey: true
+    private_key: /path/to/id_rsa
+- from:
+    - username: "alice"
+      trusted_user_ca_keys: /path/to/ca-team-b.pub
+  to:
+    host: host-b.example.com:22
+    username: "world"
+    ignore_hostkey: true
+    private_key: /path/to/id_rsa
+```
+
+A certificate signed by a CA that no pipe trusts is rejected. For gRPC plugins
+other than yaml, sshpiperd also publishes the issuing CA's SHA256 fingerprint to
+the plugin under the connection metadata key `ca-fingerprint`.
+
+### Loading keys from HashiCorp Vault
+
+`from.trusted_user_ca_keys`, `from.authorized_keys` and `to.private_key` can each
+additionally be sourced from Vault via an optional companion field, combined with
+any file/`*_data` sources:
+
+- `from.trusted_user_ca_keys_vault`
+- `from.authorized_keys_vault`
+- `to.private_key_vault`
+
+Each takes a Vault secret path. Configure access with the `VAULT_ADDR` and
+`VAULT_TOKEN` environment variables (`VAULT_CACHE_DURATION`, default `5m`, controls
+caching). CA/authorized-key paths read the first present of the
+`ca-key`/`public_key`/`authorized_keys`/`key` fields; private-key paths read the
+first present of `private_key`/`key`/`ssh_key`.
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/tg123/sshpiper/master/plugin/yaml/schema.json
+version: "1.0"
+pipes:
+- from:
+    - username: "alice"
+      trusted_user_ca_keys_vault: secret/data/ssh/ca-team-a
+  to:
+    host: host-a.example.com:22
+    username: "world"
+    ignore_hostkey: true
+    private_key_vault: secret/data/ssh/upstream-key
+```
+
