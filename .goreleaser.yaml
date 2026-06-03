@@ -6,6 +6,10 @@ before:
   hooks:
     # You may remove this if you don't use go modules.
     - go mod tidy
+    # Build the embedded sshpiperd-webadmin frontend before any go build.
+    # Requires Node.js 18+ and npm on the host.
+    - npm --prefix cmd/sshpiperd-webadmin/internal/httpapi/web ci
+    - npm --prefix cmd/sshpiperd-webadmin/internal/httpapi/web run build
 builds:
   - id: sshpiperd
     env:
@@ -19,7 +23,10 @@ builds:
       - arm64
     main: ./cmd/sshpiperd
     binary: sshpiperd
+    flags:
+      - &trimpath_flag -trimpath
     ldflags:
+      - &strip_ldflags -s -w
       - -X main.mainver={{.Version}}
   - id: snaplauncher
     env:
@@ -28,6 +35,10 @@ builds:
       - linux      
     main: ./cmd/sshpiperd/snap/launcher
     binary: snap/launcher
+    flags:
+      - *trimpath_flag
+    ldflags:
+      - *strip_ldflags
     hooks:
       pre: go generate ./cmd/sshpiperd/snap/launcher
     goarch:
@@ -45,6 +56,10 @@ builds:
       - arm64
     main: ./plugin/workingdir
     binary: plugins/workingdir
+    flags:
+      - *trimpath_flag
+    ldflags:
+      - *strip_ldflags
     tags:
       - full
   - id: plugin_yaml
@@ -59,6 +74,10 @@ builds:
       - arm64
     main: ./plugin/yaml
     binary: plugins/yaml
+    flags:
+      - *trimpath_flag
+    ldflags:
+      - *strip_ldflags
     tags:
       - full
   - id: plugin_docker
@@ -73,6 +92,10 @@ builds:
       - arm64
     main: ./plugin/docker
     binary: plugins/docker
+    flags:
+      - *trimpath_flag
+    ldflags:
+      - *strip_ldflags
     tags:
       - full
   - id: plugin_kubernetes
@@ -87,6 +110,10 @@ builds:
       - arm64
     main: ./plugin/kubernetes
     binary: plugins/kubernetes
+    flags:
+      - *trimpath_flag
+    ldflags:
+      - *strip_ldflags
     tags:
       - full
   - id: plugin_fixed
@@ -101,6 +128,10 @@ builds:
       - arm64
     main: ./plugin/fixed
     binary: plugins/fixed
+    flags:
+      - *trimpath_flag
+    ldflags:
+      - *strip_ldflags
     tags:
       - full
   - id: plugin_failtoban
@@ -115,6 +146,10 @@ builds:
       - arm64
     main: ./plugin/failtoban
     binary: plugins/failtoban
+    flags:
+      - *trimpath_flag
+    ldflags:
+      - *strip_ldflags
     tags:
       - full
   - id: plugin_username_router
@@ -129,6 +164,10 @@ builds:
       - arm64
     main: ./plugin/username-router
     binary: plugins/username-router
+    flags:
+      - *trimpath_flag
+    ldflags:
+      - *strip_ldflags
     tags:
       - full
   - id: plugin_lua
@@ -143,6 +182,66 @@ builds:
       - arm64
     main: ./plugin/lua
     binary: plugins/lua
+    flags:
+      - *trimpath_flag
+    ldflags:
+      - *strip_ldflags
+    tags:
+      - full
+  - id: plugin_metrics
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    main: ./plugin/metrics
+    binary: plugins/metrics
+    flags:
+      - *trimpath_flag
+    ldflags:
+      - *strip_ldflags
+    tags:
+      - full
+  - id: sshpiperd_webadmin
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    main: ./cmd/sshpiperd-webadmin
+    binary: sshpiperd-webadmin
+    flags:
+      - *trimpath_flag
+    ldflags:
+      - *strip_ldflags
+      - -X main.mainver={{.Version}}
+    tags:
+      - full
+  - id: sshpiperd_admin
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    main: ./cmd/sshpiperd-admin
+    binary: sshpiperd-admin
+    flags:
+      - *trimpath_flag
+    ldflags:
+      - *strip_ldflags
+      - -X main.mainver={{.Version}}
     tags:
       - full
 
@@ -171,6 +270,9 @@ archives:
       - plugin_kubernetes
       - plugin_username_router
       - plugin_lua
+      - plugin_metrics
+      - sshpiperd_webadmin
+      - sshpiperd_admin
 dockers:
   - image_templates:
       - "farmer1992/sshpiperd:v{{ .Version }}-amd64"
@@ -184,6 +286,11 @@ dockers:
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--build-arg=EXTERNAL=1"
+    extra_files: &docker_extra_files
+      # Provide the webadmin frontend sources so the `web-builder` stage in
+      # Dockerfile can resolve its COPY commands. The goreleaser docker build
+      # context only contains the binaries by default.
+      - cmd/sshpiperd-webadmin/internal/httpapi/web
     skip_push: "{{ .Env.SKIP_PUSH }}"
   - image_templates:
       - "farmer1992/sshpiperd:v{{ .Version }}-arm64"
@@ -198,6 +305,7 @@ dockers:
     build_flag_templates:
       - "--platform=linux/arm64"
       - "--build-arg=EXTERNAL=1"
+    extra_files: *docker_extra_files
     skip_push: "{{ .Env.SKIP_PUSH }}"
   # full
   - image_templates:
@@ -208,6 +316,7 @@ dockers:
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--build-arg=EXTERNAL=1"
+    extra_files: *docker_extra_files
     skip_push: "{{ .Env.SKIP_PUSH }}"
   - image_templates:
       - "farmer1992/sshpiperd:full-v{{ .Version }}-arm64"
@@ -218,6 +327,7 @@ dockers:
     build_flag_templates:
       - "--platform=linux/arm64"
       - "--build-arg=EXTERNAL=1"
+    extra_files: *docker_extra_files
     skip_push: "{{ .Env.SKIP_PUSH }}"
 docker_manifests:
   - name_template: "farmer1992/sshpiperd:v{{ .Version }}"
