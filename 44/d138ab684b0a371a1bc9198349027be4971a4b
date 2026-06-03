@@ -1,0 +1,21 @@
+libplugin/util.go
+  s_9d5ba0cef5a6fd::t_9b88a736762267 14,17-37
+cmd/sshpiperd/internal/plugin/grpc.go
+  s_9d5ba0cef5a6fd::t_c3703046622073 438-445
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "44d138ab684b0a371a1bc9198349027be4971a4b",
+  "prompts": {},
+  "sessions": {
+    "s_9d5ba0cef5a6fd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "09cf08fd-f892-4b7c-a650-2dd226883c3f",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Zed <hi@zed.dev>"
+    }
+  }
+}
