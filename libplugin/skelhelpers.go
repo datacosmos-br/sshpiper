@@ -184,7 +184,7 @@ func looksLikeBase64(s string) bool {
 	hasSpecialChars := false
 
 	for _, c := range s {
-		if !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/' || c == '=') {
+		if !(c >= 'A' && c <= 'Z') && !(c >= 'a' && c <= 'z') && !(c >= '0' && c <= '9') && c != '+' && c != '/' && c != '=' {
 			return false
 		}
 		if c >= 'A' && c <= 'Z' {
