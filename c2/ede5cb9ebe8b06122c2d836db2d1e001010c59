@@ -1,0 +1,19 @@
+libplugin/skelhelpers.go
+  s_ec497534621881::t_352da90643eaf8 187
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "c2ede5cb9ebe8b06122c2d836db2d1e001010c59",
+  "prompts": {},
+  "sessions": {
+    "s_ec497534621881": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "44b505e8-f8c5-4afa-bd2c-114a19a35757",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Zed <hi@zed.dev>"
+    }
+  }
+}
