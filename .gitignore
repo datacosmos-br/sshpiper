@@ -21,6 +21,16 @@ vendor/
 go.work
 
 /dist/
+/bin/
+/.claude/
+/.fastembed_cache.bak/
+/*.tar.gz
+/docker
+/yaml
+diff.upstream.patch
+e2e/testplugin/*/*plugin
+*.bak
+*.log
 cmd/sshpiperd/snap/launcher/configentry.txt
 /sshpiperd-admin
 /sshpiperd
