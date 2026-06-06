@@ -1,0 +1,20 @@
+.gitignore
+  s_be1d0ec079e082::t_9ea2744d1511a6 30-31
+  s_be1d0ec079e082::t_70d2c96c93f13f 24-29,32-33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "a7512ddca7ee071873e1f173f4f22f49b9ce4073",
+  "prompts": {},
+  "sessions": {
+    "s_be1d0ec079e082": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e9d0d-4f24-7980-9514-e10d6abbe1d7",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Zed <hi@zed.dev>"
+    }
+  }
+}
